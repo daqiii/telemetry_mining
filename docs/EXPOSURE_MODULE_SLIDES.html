@@ -1,0 +1,241 @@
+<title>The Exposure() module — team intro</title>
+<style>
+*{box-sizing:border-box}
+:root{
+ --paper:#f4f6f9;--surface:#ffffff;--ink:#18212f;--muted:#57657a;--faint:#8a97a8;
+ --line:#e3e8ef;--accent:#a86518;--accent-2:#8a5210;--soft:rgba(168,101,24,.10);--blue:#3f6aa8;--good:#2f8f5b;
+ --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+ --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{
+ --paper:#0c1016;--surface:#151b24;--ink:#e8ecf3;--muted:#9aa6b6;--faint:#6a7686;--line:#232c38;
+ --accent:#e0a03e;--accent-2:#eab259;--soft:rgba(224,160,62,.13);--blue:#6f9bd4;--good:#5cc088}}
+:root[data-theme="light"]{--paper:#f4f6f9;--surface:#fff;--ink:#18212f;--muted:#57657a;--faint:#8a97a8;--line:#e3e8ef;--accent:#a86518;--accent-2:#8a5210;--soft:rgba(168,101,24,.10);--blue:#3f6aa8;--good:#2f8f5b}
+:root[data-theme="dark"]{--paper:#0c1016;--surface:#151b24;--ink:#e8ecf3;--muted:#9aa6b6;--faint:#6a7686;--line:#232c38;--accent:#e0a03e;--accent-2:#eab259;--soft:rgba(224,160,62,.13);--blue:#6f9bd4;--good:#5cc088}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+.deck{height:100dvh;overflow-y:scroll;scroll-snap-type:y mandatory;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){.deck{scroll-behavior:auto}}
+.slide{min-height:100dvh;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;
+ padding:clamp(1.6rem,5vw,5rem);position:relative}
+.wrap{width:100%;max-width:64rem;margin:0 auto}
+.eyebrow{font-family:var(--mono);font-size:clamp(.7rem,1.2vw,.82rem);letter-spacing:.18em;text-transform:uppercase;
+ color:var(--accent);margin:0 0 1.1rem}
+h1{font-size:clamp(2.2rem,6vw,4rem);line-height:1.05;letter-spacing:-.02em;margin:0 0 .5rem;font-weight:680}
+h1 .mono{font-family:var(--mono);font-weight:600}
+h2{font-size:clamp(1.7rem,4.3vw,3rem);line-height:1.1;letter-spacing:-.015em;margin:0 0 1.4rem;font-weight:660;text-wrap:balance}
+.dek{font-size:clamp(1.05rem,2.1vw,1.5rem);color:var(--muted);margin:.3rem 0 0;max-width:44rem;text-wrap:balance}
+p{margin:0 0 1rem}
+strong{font-weight:650}
+.accent{color:var(--accent-2)}
+code{font-family:var(--mono);font-size:.92em;background:var(--soft);padding:.06em .36em;border-radius:5px}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:.85rem}
+ul li{position:relative;padding-left:1.5rem;font-size:clamp(1rem,1.9vw,1.28rem)}
+ul li::before{content:"";position:absolute;left:0;top:.62em;width:.5rem;height:.5rem;border-radius:2px;background:var(--accent);transform:rotate(45deg)}
+ul li .lead{font-weight:640}
+ul li small{display:block;color:var(--muted);font-size:.82em;padding-left:0;margin-top:.15rem;line-height:1.4}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,3vw,2.4rem)}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.1rem 1.25rem}
+.card h3{font-family:var(--mono);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:0 0 .7rem;font-weight:600}
+.card ul li{font-size:clamp(.95rem,1.5vw,1.08rem)}
+.card ul li::before{top:.55em}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:.4rem 0 0;
+ padding:clamp(1rem,2.2vw,1.5rem);overflow-x:auto;font-family:var(--mono);
+ font-size:clamp(.82rem,1.35vw,1.05rem);line-height:1.62;tab-size:2}
+pre .c{color:var(--faint);font-style:italic}
+pre .k{color:var(--accent-2);font-weight:600}
+pre .s{color:var(--good)}
+.note{margin-top:1.4rem;padding:.8rem 1.1rem;border-left:3px solid var(--accent);background:var(--soft);
+ border-radius:0 8px 8px 0;color:var(--muted);font-size:clamp(.92rem,1.5vw,1.1rem)}
+.note b{color:var(--ink);font-weight:640}
+.kbd{font-family:var(--mono);font-size:.85em;background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:.05em .45em;color:var(--ink)}
+.rule{height:5px;width:5rem;border-radius:3px;background:linear-gradient(90deg,var(--accent),transparent);margin:1.6rem 0}
+.meta{font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:2rem}
+.counter{position:fixed;right:1.1rem;bottom:.9rem;font-family:var(--mono);font-size:.78rem;color:var(--faint);
+ background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:.25rem .7rem;z-index:5}
+.hint{position:fixed;left:1.1rem;bottom:.9rem;font-family:var(--mono);font-size:.72rem;color:var(--faint);z-index:5}
+.bar{position:fixed;top:0;left:0;height:3px;background:var(--accent);z-index:6;transition:width .25s ease}
+@media (prefers-reduced-motion:reduce){.bar{transition:none}}
+</style>
+
+<div class="bar" id="bar"></div>
+<div class="deck" id="deck">
+
+<section class="slide">
+ <div class="wrap">
+  <p class="eyebrow">DESI · Instrumentation software</p>
+  <h1><span class="mono">Exposure(</span>expid<span class="mono">)</span></h1>
+  <p class="dek">One Python object per DESI exposure — everything about it, with no hand-rolled file paths, raw SQL, or FITS parsing.</p>
+  <div class="rule"></div>
+<pre><span class="c"># the whole idea, in one line:</span>
+<span class="k">from</span> telemetry_mining <span class="k">import</span> Exposure
+
+Exposure(<span class="s">255020</span>).db_row[<span class="s">'tcs'</span>][<span class="s">'mount_ha'</span>]      <span class="c"># DB record</span>
+Exposure(<span class="s">255020</span>).gfa_row[<span class="s">'FWHM_ASEC'</span>]           <span class="c"># offline QA</span>
+Exposure(<span class="s">255020</span>).telemetry(<span class="s">'environmentmonitor_tower'</span>)  <span class="c"># telemetry</span></pre>
+  <p class="meta">telemetry_mining · the Exposure module &nbsp;·&nbsp; K. Honscheid (OSU)</p>
+ </div>
+</section>
+
+<section class="slide">
+ <div class="wrap">
+  <p class="eyebrow">01 · The idea</p>
+  <h2>One object per exposure — not per-script plumbing.</h2>
+  <div class="two">
+   <div>
+    <ul>
+     <li><span class="lead">The problem</span><small>Every analysis hand-rolls its own file paths, raw SQL, and <code>DATE-OBS</code> parsing — copied, tweaked, and subtly different in each notebook.</small></li>
+     <li><span class="lead">The fix</span><small><code>Exposure(expid)</code> is one object that lazily resolves <em>every</em> source tied to that exposure, through a single consistent API.</small></li>
+     <li><span class="lead">So analyses compose</span><small>instead of duplicating plumbing — and everyone shares the same hard-won gotchas and fixes.</small></li>
+    </ul>
+   </div>
+   <div>
+<pre>e = Exposure(<span class="s">255020</span>)
+
+e.header          <span class="c"># raw FITS header</span>
+e.coords          <span class="c"># fiber coords, POS_LINPHI</span>
+e.db_row          <span class="c"># condensed DB record</span>
+e.calibstars      <span class="c"># std-star flux calib</span>
+e.time_window     <span class="c"># (start, end) UTC</span>
+...
+
+<span class="c"># lazy + cached; degrades to DB-only</span>
+<span class="c"># when files are purged (KPNO).</span></pre>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="slide">
+ <div class="wrap">
+  <p class="eyebrow">02 · Data sources</p>
+  <h2>Everything about an exposure, unified.</h2>
+  <div class="two">
+   <div class="card">
+    <h3>Raw exposure directory</h3>
+    <ul>
+     <li>FITS header &amp; coordinates (incl. <code>POS_LINPHI</code>)</li>
+     <li>ETC summary · guider centroids · fiberassign</li>
+    </ul>
+   </div>
+   <div class="card">
+    <h3>Replicator database</h3>
+    <ul>
+     <li>condensed <code>exposure.exposure</code> record (<code>tcs</code>/<code>hexapod</code> blobs, airmass, tile…)</li>
+     <li>guider time series (<code>telemetry.*</code>)</li>
+     <li>the alarm log (<code>alarms.alarms</code>)</li>
+    </ul>
+   </div>
+   <div class="card">
+    <h3>Offline reductions / QA</h3>
+    <ul>
+     <li>daily exposure row · exposure-table flags</li>
+     <li>GFA summary (seeing, transparency)</li>
+     <li>FIBERQA / PETALQA · cframe spectra · <code>calibstars</code></li>
+    </ul>
+   </div>
+   <div class="card">
+    <h3>Bring your own</h3>
+    <ul>
+     <li><code>TableSource</code> — any EXPID-keyed table (e.g. WIYN seeing)</li>
+     <li><code>TelemetryField</code> — named time-series lookups</li>
+    </ul>
+   </div>
+  </div>
+  <div class="note"><b>Lazy &amp; cached.</b> Nothing is fetched until you touch it; each source is read once per exposure. File-based accessors fall back cleanly to DB-only when the on-disk files have been purged.</div>
+ </div>
+</section>
+
+<section class="slide">
+ <div class="wrap">
+  <p class="eyebrow">03 · Key functions</p>
+  <h2>One exposure, or thousands.</h2>
+  <ul>
+   <li><span class="lead"><code>Exposure(expid)</code> — accessors</span><small><code>.header .coords .db_row .calibstars .cframe_tables() .gfa_row .fiberqa_table .telemetry() .alarms()</code> …</small></li>
+   <li><span class="lead"><code>select_exposures(where, columns=…)</code></span><small>one row per exposure matching a SQL <code>WHERE</code>; pull any field via a small column spec language. <code>on_error='skip'</code>, <code>max_workers=…</code>.</small></li>
+   <li><span class="lead"><code>harvest(expids, fn, concat=True)</code></span><small>run <code>fn(Exposure)</code> per exposure and pool per-fiber tables into one DataFrame — <code>night</code> resolved, <code>EXPID</code> inserted, gaps skipped, read in parallel.</small></li>
+   <li><span class="lead">time &harr; exposure</span><small><code>Exposure.time_window</code>, <code>Exposure.at_time(t)</code>, <code>find_alarms(alarm_id=…)</code> — attach any timestamped event to its exposure.</small></li>
+  </ul>
+  <div class="note">You write Python; the module builds and runs the queries (parameterized, identifiers validated) — no hand-written SQL in the notebook.</div>
+ </div>
+</section>
+
+<section class="slide">
+ <div class="wrap">
+  <p class="eyebrow">04 · Example — many exposures</p>
+  <h2>Pool a per-fiber quantity across a whole survey window.</h2>
+<pre><span class="k">from</span> telemetry_mining <span class="k">import</span> select_exposures, harvest
+
+sel = select_exposures(
+    <span class="s">"sequence = ANY(%s) and night between %s and %s and totteff > %s"</span>,
+    params=([<span class="s">'DESI'</span>], <span class="s">20260101</span>, <span class="s">20260710</span>, <span class="s">30.0</span>))
+
+<span class="k">def</span> per_exposure(e):
+    cs = e.calibstars
+    <span class="k">if</span> cs <span class="k">is</span> None: <span class="k">return</span> None            <span class="c"># -> harvest drops this exposure</span>
+    <span class="k">return</span> cs.join(e.coords[[<span class="s">'POS_LINPHI'</span>]], on=[<span class="s">'PETAL_LOC'</span>,<span class="s">'DEVICE_LOC'</span>])
+
+calib = harvest(sel.EXPID, per_exposure, concat=<span class="k">True</span>, max_workers=<span class="s">8</span>)
+<span class="c"># -> ONE DataFrame: EXPID column, night resolved, gaps skipped, read in parallel</span></pre>
+  <div class="note">This is the actual <code>calibstars_linphi</code> study (are the “lin-phi” positioners biased?) — the answer came from grouping that one pooled frame by robot type.</div>
+ </div>
+</section>
+
+<section class="slide">
+ <div class="wrap">
+  <p class="eyebrow">05 · Example — the alarm log</p>
+  <h2>Alarm 9200 (“large mount offset”): where do the episodes land?</h2>
+<pre><span class="k">from</span> telemetry_mining <span class="k">import</span> find_alarms, Exposure
+
+alarms = find_alarms(alarm_id=<span class="s">9200</span>)          <span class="c"># every occurrence, all years</span>
+alarms[<span class="s">'expid'</span>] = alarms.message.str.extract(<span class="s">r'DESI \((\d+)\)'</span>)[<span class="s">0</span>]
+
+<span class="k">def</span> pointing(expid):
+    tcs = Exposure(<span class="k">int</span>(expid)).db_row[<span class="s">'tcs'</span>]   <span class="c"># DB-only — works on purged old nights</span>
+    <span class="k">return</span> tcs[<span class="s">'mount_ha'</span>], tcs[<span class="s">'mount_dec'</span>]
+<span class="c"># -> scatter of mount HA / Dec, coloured by episode (year)</span></pre>
+  <div class="note"><b>Live demo:</b> the <code>alarm_9200_mount_offsets</code> notebook — alarm search &rarr; exposure &rarr; mount pointing &rarr; episode map, entirely through the module (no SQL, no reading FITS files).</div>
+ </div>
+</section>
+
+<section class="slide">
+ <div class="wrap">
+  <p class="eyebrow">06 · Getting started</p>
+  <h2>Installation &amp; reference.</h2>
+<pre>svn co https://desi.lbl.gov/svn/code/online/telemetry_mining/trunk
+<span class="k">import</span> sys; sys.path.insert(<span class="s">0</span>, <span class="s">'.../telemetry_mining-trunk/src'</span>)
+<span class="k">from</span> telemetry_mining <span class="k">import</span> Exposure, select_exposures, harvest</pre>
+  <ul style="margin-top:1.6rem">
+   <li><span class="lead">Reference</span><small><code>API.md</code> (every class &amp; function) · <code>FIELDS.md</code> (field/column glossary)</small></li>
+   <li><span class="lead">Runs at NERSC &amp; KPNO</span><small>same code both sites; DB-only when files are gone.</small></li>
+   <li><span class="lead">Worked examples</span><small><code>calibstars_linphi</code> · <code>fiberflux_ratio_linphi</code> · <code>alarm_9200_mount_offsets</code> · field-rotation · windshake …</small></li>
+   <li><span class="lead">Missing a source?</span><small>most are a thin accessor over the DB/files — ask, or drop in a <code>TableSource</code>.</small></li>
+  </ul>
+ </div>
+</section>
+
+</div>
+<div class="counter" id="counter">1 / 7</div>
+<div class="hint">&larr; &rarr; / space</div>
+
+<script>
+(function(){
+ var deck=document.getElementById('deck'), bar=document.getElementById('bar'),
+     counter=document.getElementById('counter'),
+     slides=[].slice.call(document.querySelectorAll('.slide')),
+     reduce=matchMedia('(prefers-reduced-motion:reduce)').matches, idx=0;
+ function set(n){idx=Math.max(0,Math.min(slides.length-1,n));
+   slides[idx].scrollIntoView({behavior:reduce?'auto':'smooth'});}
+ document.addEventListener('keydown',function(e){
+   if(['ArrowRight','ArrowDown','PageDown',' '].indexOf(e.key)>-1){e.preventDefault();set(idx+1);}
+   else if(['ArrowLeft','ArrowUp','PageUp'].indexOf(e.key)>-1){e.preventDefault();set(idx-1);}
+   else if(e.key==='Home'){e.preventDefault();set(0);}
+   else if(e.key==='End'){e.preventDefault();set(slides.length-1);}});
+ var io=new IntersectionObserver(function(es){
+   es.forEach(function(en){ if(en.isIntersecting){ idx=slides.indexOf(en.target);
+     counter.textContent=(idx+1)+' / '+slides.length;
+     bar.style.width=((idx+1)/slides.length*100)+'%'; }});},{threshold:0.55});
+ slides.forEach(function(s){io.observe(s);});
+ bar.style.width=(1/slides.length*100)+'%';
+})();
+</script>

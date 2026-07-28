@@ -1,0 +1,11326 @@
+[
+ {
+  "shared_variable": "TELEMETRY_LIMITS",
+  "tablename": "telemetry_limits",
+  "ncols": 15,
+  "error": null,
+  "columns": [
+   [
+    "telemetry_limits",
+    "integer",
+    "195692"
+   ],
+   [
+    "shared_variable",
+    "text",
+    "SPECTROGRAPHS_SENSORS"
+   ],
+   [
+    "value",
+    "text",
+    "bench_coll_temp"
+   ],
+   [
+    "warning_limits",
+    "ARRAY",
+    "[None, 30.0]"
+   ],
+   [
+    "alert_limits",
+    "ARRAY",
+    "[None, 35.0]"
+   ],
+   [
+    "unit_field_name",
+    "text",
+    "unit"
+   ],
+   [
+    "unit",
+    "text",
+    "1"
+   ],
+   [
+    "subunit_field_name",
+    "text",
+    "None"
+   ],
+   [
+    "subunit",
+    "text",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-01-06 00:59:19.809283+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-01-06 00:59:19.810377+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "searchable_columns",
+    "jsonb",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GFA_TELEMETRY",
+  "tablename": "gfa_telemetry",
+  "ncols": 24,
+  "error": null,
+  "columns": [
+   [
+    "gfa_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2019-08-16T04:08:29.588340"
+   ],
+   [
+    "status",
+    "text",
+    "READY"
+   ],
+   [
+    "ccdpower",
+    "double precision",
+    "0.865"
+   ],
+   [
+    "ambient",
+    "double precision",
+    "0.449"
+   ],
+   [
+    "unit",
+    "integer",
+    "900"
+   ],
+   [
+    "role",
+    "text",
+    "GUIDE900"
+   ],
+   [
+    "settemp",
+    "double precision",
+    "0.049"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-08-16 04:08:29.593808+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-08-16 04:08:29.594265+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "ccdtemp",
+    "double precision",
+    "None"
+   ],
+   [
+    "cooling",
+    "integer",
+    "None"
+   ],
+   [
+    "hotpeltier",
+    "double precision",
+    "None"
+   ],
+   [
+    "coldpeltier",
+    "double precision",
+    "None"
+   ],
+   [
+    "filter",
+    "double precision",
+    "None"
+   ],
+   [
+    "humid2",
+    "double precision",
+    "None"
+   ],
+   [
+    "humid3",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpga",
+    "double precision",
+    "None"
+   ],
+   [
+    "camerahumid",
+    "double precision",
+    "None"
+   ],
+   [
+    "cameratemp",
+    "double precision",
+    "None"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GFA_STATUS",
+  "tablename": "gfa_status",
+  "ncols": 17,
+  "error": null,
+  "columns": [
+   [
+    "gfa_status",
+    "integer",
+    "1"
+   ],
+   [
+    "state",
+    "text",
+    "UNKNOWN"
+   ],
+   [
+    "bias_enabled",
+    "integer",
+    "None"
+   ],
+   [
+    "connected",
+    "integer",
+    "0"
+   ],
+   [
+    "biased",
+    "integer",
+    "0"
+   ],
+   [
+    "temp_setpoint",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2019-08-16T04:08:09.558267"
+   ],
+   [
+    "unit",
+    "integer",
+    "900"
+   ],
+   [
+    "role",
+    "text",
+    "GUIDE900"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-08-16 04:08:09.564743+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-08-16 04:08:09.565335+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "temp_regulation",
+    "ARRAY",
+    "None"
+   ],
+   [
+    "loopmode",
+    "integer",
+    "None"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "CALIBRATION_TELEMETRY",
+  "tablename": "calibration_telemetry",
+  "ncols": 54,
+  "error": null,
+  "columns": [
+   [
+    "calibration_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "cal0_temp1",
+    "double precision",
+    "5.4375"
+   ],
+   [
+    "cal0_temp2",
+    "double precision",
+    "5.71875"
+   ],
+   [
+    "cal0_humidity",
+    "double precision",
+    "47.139384"
+   ],
+   [
+    "cal0_temp3",
+    "double precision",
+    "5.03125"
+   ],
+   [
+    "cal1_temp1",
+    "double precision",
+    "4.96875"
+   ],
+   [
+    "cal1_temp2",
+    "double precision",
+    "5.90625"
+   ],
+   [
+    "cal1_temp3",
+    "double precision",
+    "5.75"
+   ],
+   [
+    "cal1_humidity",
+    "double precision",
+    "47.142437"
+   ],
+   [
+    "cal2_temp1",
+    "double precision",
+    "5.75"
+   ],
+   [
+    "cal2_temp2",
+    "double precision",
+    "5.875"
+   ],
+   [
+    "cal2_humidity",
+    "double precision",
+    "46.542234"
+   ],
+   [
+    "cal2_temp3",
+    "double precision",
+    "5.6875"
+   ],
+   [
+    "cal3_temp1",
+    "double precision",
+    "5.90625"
+   ],
+   [
+    "cal3_temp2",
+    "double precision",
+    "5.53125"
+   ],
+   [
+    "cal3_temp3",
+    "double precision",
+    "5.96875"
+   ],
+   [
+    "cal3_humidity",
+    "double precision",
+    "39.837247"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-03-04 14:55:44.391047+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20200302"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-03-04 14:55:44.403596+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "cal0_leds_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal0_halogenbluefilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal0_halogennofilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal0_cd_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal0_xe_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal0_ne_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal0_kr_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal0_hgar_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_leds_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_halogenbluefilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_halogennofilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_cd_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_xe_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_ne_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_kr_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal1_hgar_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_leds_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_halogenbluefilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_halogennofilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_cd_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_xe_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_ne_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_kr_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal2_hgar_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_leds_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_halogenbluefilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_halogennofilter_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_cd_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_xe_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_ne_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_kr_i",
+    "double precision",
+    "None"
+   ],
+   [
+    "cal3_hgar_i",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_TELEMETRY",
+  "tablename": "pc_telemetry",
+  "ncols": 24,
+  "error": null,
+  "columns": [
+   [
+    "pc_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "gfa_fan_in_pwm",
+    "double precision",
+    "None"
+   ],
+   [
+    "gfa_fan_out_pwm",
+    "double precision",
+    "None"
+   ],
+   [
+    "gfa_fan_in_tach",
+    "integer",
+    "None"
+   ],
+   [
+    "gfa_fan_out_tach",
+    "integer",
+    "None"
+   ],
+   [
+    "gfatime",
+    "timestamp with time zone",
+    "None"
+   ],
+   [
+    "pbox_temp_sensor",
+    "double precision",
+    "22.018"
+   ],
+   [
+    "gxb_temp_sensor",
+    "double precision",
+    "21.401"
+   ],
+   [
+    "fpp_temp_sensor_1",
+    "double precision",
+    "21.891"
+   ],
+   [
+    "fpp_temp_sensor_2",
+    "double precision",
+    "22.476"
+   ],
+   [
+    "fpp_temp_sensor_3",
+    "double precision",
+    "21.582"
+   ],
+   [
+    "temptime",
+    "timestamp with time zone",
+    "2019-09-22 17:27:09.488194+00:00"
+   ],
+   [
+    "gxbcur",
+    "double precision",
+    "1.8924"
+   ],
+   [
+    "gxbtime",
+    "timestamp with time zone",
+    "2019-09-22 17:27:09.488107+00:00"
+   ],
+   [
+    "pcid",
+    "integer",
+    "900"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-09-22 17:27:09.496891+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-09-22 17:27:09.497928+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "adc_bb",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_buf",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_gfa",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_fan",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_TELEMETRY-CAN-FID",
+  "tablename": "pc_telemetry_can_fid",
+  "ncols": 19,
+  "error": null,
+  "columns": [
+   [
+    "pc_telemetry_can_fid",
+    "integer",
+    "32765"
+   ],
+   [
+    "posfid_temps_n_above_th",
+    "integer",
+    "0"
+   ],
+   [
+    "posfid_state",
+    "text",
+    "okay"
+   ],
+   [
+    "posfid_instatesince",
+    "double precision",
+    "1569237682.3018453"
+   ],
+   [
+    "posfid_timelastalarm",
+    "double precision",
+    "1569237682.3018453"
+   ],
+   [
+    "time",
+    "timestamp with time zone",
+    "2019-09-23 12:43:17.181738+00:00"
+   ],
+   [
+    "pcid",
+    "integer",
+    "901"
+   ],
+   [
+    "fid_temps",
+    "jsonb",
+    "[30.51, 30.51, 30.51, 30.51, 30.51, 30.51, 30.51,..."
+   ],
+   [
+    "fid_temps_max",
+    "double precision",
+    "30.51"
+   ],
+   [
+    "fid_temps_quantiles",
+    "ARRAY",
+    "[30.51, 30.51, 30.51, 30.51, 30.51]"
+   ],
+   [
+    "temp_threshold",
+    "integer",
+    "40"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-09-23 12:43:17.183304+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-09-23 12:43:17.184363+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "fid_temps_n_above_th",
+    "integer",
+    "None"
+   ],
+   [
+    "fid_temps_mean",
+    "double precision",
+    "None"
+   ],
+   [
+    "fid_temps_median",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_TELEMETRY-CAN-ALL",
+  "tablename": "pc_telemetry_can_all",
+  "ncols": 23,
+  "error": null,
+  "columns": [
+   [
+    "pc_telemetry_can_all",
+    "integer",
+    "1"
+   ],
+   [
+    "time",
+    "timestamp with time zone",
+    "2019-09-22 17:30:32.019301+00:00"
+   ],
+   [
+    "pcid",
+    "integer",
+    "900"
+   ],
+   [
+    "posfid_imons",
+    "jsonb",
+    "{'9000': {'900000': None, '900001': None, '900002..."
+   ],
+   [
+    "posfid_temps_n_above_th",
+    "integer",
+    "0"
+   ],
+   [
+    "posfid_state",
+    "text",
+    "okay"
+   ],
+   [
+    "fid_temp_quantiles",
+    "ARRAY",
+    "None"
+   ],
+   [
+    "temp_threshold",
+    "double precision",
+    "None"
+   ],
+   [
+    "posfid_sysclks",
+    "jsonb",
+    "{'9000': {'900000': 72, '900001': 72, '900002': 7..."
+   ],
+   [
+    "posfid_temps_quantiles",
+    "ARRAY",
+    "[34.781, 34.781, 34.781, 34.781, 34.781]"
+   ],
+   [
+    "posfid_instatesince",
+    "double precision",
+    "1569173431.1526911"
+   ],
+   [
+    "posfid_timelastalarm",
+    "double precision",
+    "1569173431.1526911"
+   ],
+   [
+    "fid_temps",
+    "jsonb",
+    "None"
+   ],
+   [
+    "fid_temps_max",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-09-22 17:30:37.034649+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-09-22 17:30:37.035940+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "posfid_temps",
+    "jsonb",
+    "None"
+   ],
+   [
+    "posfid_temps_max",
+    "double precision",
+    "None"
+   ],
+   [
+    "posfid_temps_mean",
+    "double precision",
+    "None"
+   ],
+   [
+    "posfid_temps_median",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_TELEMETRY-STATUS",
+  "tablename": "pc_telemetry_status",
+  "ncols": 27,
+  "error": null,
+  "columns": [
+   [
+    "pc_telemetry_status",
+    "integer",
+    "17"
+   ],
+   [
+    "gfa_ovrtmp",
+    "integer",
+    "0"
+   ],
+   [
+    "gfa_fan_in_en",
+    "integer",
+    "None"
+   ],
+   [
+    "gfa_fan_out_en",
+    "integer",
+    "None"
+   ],
+   [
+    "pospwr_ps1_fbk",
+    "integer",
+    "None"
+   ],
+   [
+    "pospwr_ps2_fbk",
+    "integer",
+    "None"
+   ],
+   [
+    "pospwr_ps1_en",
+    "integer",
+    "None"
+   ],
+   [
+    "pospwr_ps2_en",
+    "integer",
+    "None"
+   ],
+   [
+    "pcid",
+    "integer",
+    "905"
+   ],
+   [
+    "gfapwr_en",
+    "integer",
+    "0"
+   ],
+   [
+    "tec_ctrl",
+    "integer",
+    "0"
+   ],
+   [
+    "canbrd1_en",
+    "integer",
+    "1"
+   ],
+   [
+    "canbrd2_en",
+    "integer",
+    "1"
+   ],
+   [
+    "buff_en1",
+    "integer",
+    "1"
+   ],
+   [
+    "buff_en2",
+    "integer",
+    "1"
+   ],
+   [
+    "fxc_okay",
+    "integer",
+    "1"
+   ],
+   [
+    "ccdbiasenabled",
+    "integer",
+    "0"
+   ],
+   [
+    "ccdbias",
+    "integer",
+    "0"
+   ],
+   [
+    "telemetryfault",
+    "integer",
+    "None"
+   ],
+   [
+    "canbusfault",
+    "integer",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-09-22 19:22:02.599055+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-09-22 19:22:02.600026+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "status",
+    "integer",
+    "None"
+   ],
+   [
+    "time",
+    "timestamp with time zone",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PBPOWER_PBOUTLETS",
+  "tablename": "pbpower_pboutlets",
+  "ncols": 16,
+  "error": null,
+  "columns": [
+   [
+    "pbpower_pboutlets",
+    "integer",
+    "1"
+   ],
+   [
+    "petalbox0",
+    "integer",
+    "0"
+   ],
+   [
+    "petalbox1",
+    "integer",
+    "0"
+   ],
+   [
+    "petalbox2",
+    "integer",
+    "None"
+   ],
+   [
+    "petalbox3",
+    "integer",
+    "None"
+   ],
+   [
+    "petalbox4",
+    "integer",
+    "None"
+   ],
+   [
+    "petalbox5",
+    "integer",
+    "None"
+   ],
+   [
+    "petalbox6",
+    "integer",
+    "0"
+   ],
+   [
+    "petalbox7",
+    "integer",
+    "0"
+   ],
+   [
+    "petalbox8",
+    "integer",
+    "0"
+   ],
+   [
+    "petalbox9",
+    "integer",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-10-21 13:43:36.000545+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "gfas_20191021"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-10-21 13:43:36.001236+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PBPOWER_FXC",
+  "tablename": "pbpower_fxc",
+  "ncols": 7,
+  "error": null,
+  "columns": [
+   [
+    "pbpower_fxc",
+    "integer",
+    "1"
+   ],
+   [
+    "fxc",
+    "integer",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-10-21 13:43:32.778522+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-10-21 13:43:32.778996+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ETC_TELEMETRY",
+  "tablename": "etc_telemetry",
+  "ncols": 65,
+  "error": null,
+  "columns": [
+   [
+    "etc_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "expid",
+    "integer",
+    "None"
+   ],
+   [
+    "seeing",
+    "double precision",
+    "1.0"
+   ],
+   [
+    "transparency",
+    "double precision",
+    "0.8"
+   ],
+   [
+    "skylevel",
+    "double precision",
+    "21.0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-04-22 14:35:59.250512+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desisim_20200401"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-04-22 14:35:59.251726+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ],
+   [
+    "img_proc",
+    "integer",
+    "None"
+   ],
+   [
+    "etc_updated",
+    "text",
+    "None"
+   ],
+   [
+    "etc_proc",
+    "integer",
+    "None"
+   ],
+   [
+    "etc_ready",
+    "integer",
+    "None"
+   ],
+   [
+    "desietc",
+    "text",
+    "None"
+   ],
+   [
+    "gfa_count",
+    "integer",
+    "None"
+   ],
+   [
+    "sky_count",
+    "integer",
+    "None"
+   ],
+   [
+    "desi_count",
+    "integer",
+    "None"
+   ],
+   [
+    "signal",
+    "double precision",
+    "None"
+   ],
+   [
+    "background",
+    "double precision",
+    "None"
+   ],
+   [
+    "efftime",
+    "double precision",
+    "None"
+   ],
+   [
+    "realtime",
+    "double precision",
+    "None"
+   ],
+   [
+    "efftime_tot",
+    "double precision",
+    "None"
+   ],
+   [
+    "realtime_tot",
+    "double precision",
+    "None"
+   ],
+   [
+    "remaining",
+    "double precision",
+    "None"
+   ],
+   [
+    "proj_efftime",
+    "double precision",
+    "None"
+   ],
+   [
+    "next_split",
+    "double precision",
+    "None"
+   ],
+   [
+    "splittable",
+    "integer",
+    "None"
+   ],
+   [
+    "req_efftime",
+    "double precision",
+    "None"
+   ],
+   [
+    "sbprof",
+    "text",
+    "None"
+   ],
+   [
+    "max_exptime",
+    "double precision",
+    "None"
+   ],
+   [
+    "cosmics_split",
+    "double precision",
+    "None"
+   ],
+   [
+    "img_start_time",
+    "text",
+    "None"
+   ],
+   [
+    "seeing_updated",
+    "text",
+    "None"
+   ],
+   [
+    "ffrac_psf",
+    "double precision",
+    "None"
+   ],
+   [
+    "ffrac",
+    "double precision",
+    "None"
+   ],
+   [
+    "etc_start_time",
+    "text",
+    "None"
+   ],
+   [
+    "skylevel_updated",
+    "text",
+    "None"
+   ],
+   [
+    "etc_stop_time",
+    "text",
+    "None"
+   ],
+   [
+    "etc_stop_src",
+    "text",
+    "None"
+   ],
+   [
+    "about_to_split",
+    "integer",
+    "None"
+   ],
+   [
+    "split_requested",
+    "integer",
+    "None"
+   ],
+   [
+    "stop_requested",
+    "integer",
+    "None"
+   ],
+   [
+    "about_to_finish",
+    "integer",
+    "None"
+   ],
+   [
+    "will_not_finish",
+    "integer",
+    "None"
+   ],
+   [
+    "ffrac_avg",
+    "double precision",
+    "None"
+   ],
+   [
+    "thru_avg",
+    "double precision",
+    "None"
+   ],
+   [
+    "transparency_updated",
+    "text",
+    "None"
+   ],
+   [
+    "maxsplit",
+    "integer",
+    "None"
+   ],
+   [
+    "warning_time",
+    "integer",
+    "None"
+   ],
+   [
+    "img_stop_time",
+    "text",
+    "None"
+   ],
+   [
+    "img_stop_src",
+    "text",
+    "None"
+   ],
+   [
+    "ffrac_elg",
+    "double precision",
+    "None"
+   ],
+   [
+    "ffrac_bgs",
+    "double precision",
+    "None"
+   ],
+   [
+    "transp",
+    "double precision",
+    "None"
+   ],
+   [
+    "speed_dark",
+    "double precision",
+    "None"
+   ],
+   [
+    "speed_bright",
+    "double precision",
+    "None"
+   ],
+   [
+    "speed_backup",
+    "double precision",
+    "None"
+   ],
+   [
+    "speed_dark_nts",
+    "double precision",
+    "None"
+   ],
+   [
+    "speed_bright_nts",
+    "double precision",
+    "None"
+   ],
+   [
+    "speed_backup_nts",
+    "double precision",
+    "None"
+   ],
+   [
+    "rel_rotrate",
+    "double precision",
+    "None"
+   ],
+   [
+    "start_time",
+    "text",
+    "None"
+   ],
+   [
+    "nts_program",
+    "text",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FVC_CAMERASTATUS",
+  "tablename": "fvc_camerastatus",
+  "ncols": 15,
+  "error": null,
+  "columns": [
+   [
+    "fvc_camerastatus",
+    "integer",
+    "1"
+   ],
+   [
+    "controller_open",
+    "integer",
+    "1"
+   ],
+   [
+    "reset",
+    "integer",
+    "1"
+   ],
+   [
+    "initialized",
+    "integer",
+    "1"
+   ],
+   [
+    "shutter_open",
+    "integer",
+    "0"
+   ],
+   [
+    "fan_on",
+    "integer",
+    "1"
+   ],
+   [
+    "temp_degc",
+    "double precision",
+    "-999.0"
+   ],
+   [
+    "exptime_sec",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "psf_pixels",
+    "double precision",
+    "2.037"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2019-03-31T18:53:11.680127"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-31 18:53:11.696556+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-31 18:53:11.699890+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "OCS_POSITIONING",
+  "tablename": "ocs_positioning",
+  "ncols": 39,
+  "error": null,
+  "columns": [
+   [
+    "ocs_positioning",
+    "integer",
+    "1"
+   ],
+   [
+    "expid",
+    "integer",
+    "56197"
+   ],
+   [
+    "targets",
+    "integer",
+    "5000"
+   ],
+   [
+    "iteration",
+    "integer",
+    "0"
+   ],
+   [
+    "rms",
+    "double precision",
+    "0.0632"
+   ],
+   [
+    "enabled",
+    "integer",
+    "4208"
+   ],
+   [
+    "disabled",
+    "integer",
+    "773"
+   ],
+   [
+    "ontarget",
+    "integer",
+    "85"
+   ],
+   [
+    "fraction",
+    "double precision",
+    "0.0202"
+   ],
+   [
+    "converged",
+    "integer",
+    "0"
+   ],
+   [
+    "last_expid",
+    "integer",
+    "None"
+   ],
+   [
+    "last_targets",
+    "integer",
+    "None"
+   ],
+   [
+    "last_iteration",
+    "integer",
+    "None"
+   ],
+   [
+    "last_rms",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_enabled",
+    "integer",
+    "None"
+   ],
+   [
+    "last_disabled",
+    "integer",
+    "None"
+   ],
+   [
+    "last_ontarget",
+    "integer",
+    "None"
+   ],
+   [
+    "last_fraction",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_converged",
+    "integer",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-06-04 04:56:53.140581+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desisim_20200526"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-06-04 04:56:53.141723+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "onfraction",
+    "double precision",
+    "None"
+   ],
+   [
+    "cvgfraction",
+    "double precision",
+    "None"
+   ],
+   [
+    "loop_converged",
+    "integer",
+    "None"
+   ],
+   [
+    "last_onfraction",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_cvgfraction",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_loop_converged",
+    "integer",
+    "None"
+   ],
+   [
+    "last_last_expid",
+    "integer",
+    "None"
+   ],
+   [
+    "trms",
+    "double precision",
+    "None"
+   ],
+   [
+    "posrms",
+    "double precision",
+    "None"
+   ],
+   [
+    "turbrms",
+    "double precision",
+    "None"
+   ],
+   [
+    "notontarget",
+    "integer",
+    "None"
+   ],
+   [
+    "last_posrms",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_turbrms",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_notontarget",
+    "integer",
+    "None"
+   ],
+   [
+    "turbclip",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_DOME",
+  "tablename": "environmentmonitor_dome",
+  "ncols": 59,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_dome",
+    "integer",
+    "1"
+   ],
+   [
+    "dome_timestamp",
+    "text",
+    "2019-03-27 03:10:14"
+   ],
+   [
+    "platform",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "stairs_upper",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "stairs_mid",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "stairs_lower",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "dome_left_upper",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "dome_left_lower",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "dome_back_upper",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "dome_back_lower",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "dome_right_upper",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "dome_right_lower",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "lcr_ceiling",
+    "double precision",
+    "14.9"
+   ],
+   [
+    "lcr_n_wall_inside",
+    "double precision",
+    "14.9"
+   ],
+   [
+    "lcr_w_wall_inside",
+    "double precision",
+    "14.6"
+   ],
+   [
+    "lcr_floor",
+    "double precision",
+    "13.6"
+   ],
+   [
+    "shack_ceiling",
+    "double precision",
+    "15.9"
+   ],
+   [
+    "shack_wall",
+    "double precision",
+    "14.3"
+   ],
+   [
+    "lcr_ambient_n",
+    "double precision",
+    "14.5"
+   ],
+   [
+    "lcr_ambient_s",
+    "double precision",
+    "15.4"
+   ],
+   [
+    "lcr_n_wall_outside",
+    "double precision",
+    "12.3"
+   ],
+   [
+    "lcr_w_wall_outside",
+    "double precision",
+    "12.9"
+   ],
+   [
+    "c_floor",
+    "double precision",
+    "12.5"
+   ],
+   [
+    "telescope_base",
+    "double precision",
+    "12.1"
+   ],
+   [
+    "utility_room",
+    "double precision",
+    "15.4"
+   ],
+   [
+    "utility_n_wall",
+    "double precision",
+    "14.9"
+   ],
+   [
+    "scr_e_wall_coude",
+    "double precision",
+    "12.5"
+   ],
+   [
+    "scr_e_wall_computer",
+    "double precision",
+    "13.4"
+   ],
+   [
+    "scr_roof",
+    "double precision",
+    "13.7"
+   ],
+   [
+    "scr_roof_ambient",
+    "double precision",
+    "13.3"
+   ],
+   [
+    "glycol",
+    "double precision",
+    "-3.4"
+   ],
+   [
+    "main_floor",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-27 03:10:16.733842+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-27 03:10:16.741833+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "shutter_upper",
+    "integer",
+    "None"
+   ],
+   [
+    "shutter_lower",
+    "integer",
+    "None"
+   ],
+   [
+    "lights_high",
+    "integer",
+    "None"
+   ],
+   [
+    "lights_low",
+    "integer",
+    "None"
+   ],
+   [
+    "mirror_cover",
+    "integer",
+    "None"
+   ],
+   [
+    "mirror_cooling",
+    "integer",
+    "None"
+   ],
+   [
+    "catwalk_temperature",
+    "double precision",
+    "None"
+   ],
+   [
+    "catwalk_split",
+    "double precision",
+    "None"
+   ],
+   [
+    "catwalk_humidity",
+    "double precision",
+    "None"
+   ],
+   [
+    "catwalk_dewpoint",
+    "double precision",
+    "None"
+   ],
+   [
+    "mirror_ventfans",
+    "integer",
+    "None"
+   ],
+   [
+    "dome_floor_s",
+    "double precision",
+    "None"
+   ],
+   [
+    "dome_floor_ne",
+    "double precision",
+    "None"
+   ],
+   [
+    "dome_floor_nw",
+    "double precision",
+    "None"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ],
+   [
+    "calibration_comment",
+    "text",
+    "None"
+   ],
+   [
+    "calibration_trigger",
+    "integer",
+    "None"
+   ],
+   [
+    "louvers_left",
+    "ARRAY",
+    "None"
+   ],
+   [
+    "louvers_right",
+    "ARRAY",
+    "None"
+   ],
+   [
+    "calibration_state",
+    "text",
+    "None"
+   ],
+   [
+    "b29fan",
+    "integer",
+    "None"
+   ],
+   [
+    "dome_circulation_fan",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_TELESCOPE",
+  "tablename": "environmentmonitor_telescope",
+  "ncols": 75,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_telescope",
+    "integer",
+    "1"
+   ],
+   [
+    "telescope_timestamp",
+    "text",
+    "2019-03-27 03:10:14"
+   ],
+   [
+    "mirror_avg_temp",
+    "double precision",
+    "22.79"
+   ],
+   [
+    "mirror_desired_temp",
+    "double precision",
+    "12.0"
+   ],
+   [
+    "servo_setpoint",
+    "double precision",
+    "40.0"
+   ],
+   [
+    "air_temp",
+    "double precision",
+    "12.13"
+   ],
+   [
+    "air_dewpoint",
+    "double precision",
+    "-4.17"
+   ],
+   [
+    "air_flow",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "probe1_humidity",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "probe1_temp",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "probe2_humidity",
+    "double precision",
+    "-99.99"
+   ],
+   [
+    "probe2_temp",
+    "double precision",
+    "-99.99"
+   ],
+   [
+    "flowrate_in",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "flowrate_out",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "mirror_rtd_temp",
+    "double precision",
+    "-99.9"
+   ],
+   [
+    "mirror_nib_temp",
+    "double precision",
+    "20.1"
+   ],
+   [
+    "mirror_eib_temp",
+    "double precision",
+    "20.2"
+   ],
+   [
+    "mirror_sib_temp",
+    "double precision",
+    "20.3"
+   ],
+   [
+    "mirror_wib_temp",
+    "double precision",
+    "20.4"
+   ],
+   [
+    "mirror_nob_temp",
+    "double precision",
+    "20.3"
+   ],
+   [
+    "mirror_eob_temp",
+    "double precision",
+    "20.4"
+   ],
+   [
+    "mirror_sob_temp",
+    "double precision",
+    "20.3"
+   ],
+   [
+    "mirror_wob_temp",
+    "double precision",
+    "20.4"
+   ],
+   [
+    "mirror_nit_temp",
+    "double precision",
+    "23.1"
+   ],
+   [
+    "mirror_eit_temp",
+    "double precision",
+    "23.0"
+   ],
+   [
+    "mirror_sit_temp",
+    "double precision",
+    "22.9"
+   ],
+   [
+    "mirror_wit_temp",
+    "double precision",
+    "22.9"
+   ],
+   [
+    "mirror_not_temp",
+    "double precision",
+    "22.6"
+   ],
+   [
+    "mirror_eot_temp",
+    "double precision",
+    "22.7"
+   ],
+   [
+    "mirror_sot_temp",
+    "double precision",
+    "22.6"
+   ],
+   [
+    "mirror_wot_temp",
+    "double precision",
+    "22.7"
+   ],
+   [
+    "glycol_in_temp",
+    "double precision",
+    "25.3"
+   ],
+   [
+    "glycol_out_temp",
+    "double precision",
+    "25.2"
+   ],
+   [
+    "air_in_temp",
+    "double precision",
+    "25.3"
+   ],
+   [
+    "air_out_temp",
+    "double precision",
+    "25.1"
+   ],
+   [
+    "truss_ntt_temp",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "truss_ett_temp",
+    "double precision",
+    "0.1"
+   ],
+   [
+    "truss_stt_temp",
+    "double precision",
+    "0.3"
+   ],
+   [
+    "truss_wtt_temp",
+    "double precision",
+    "0.2"
+   ],
+   [
+    "truss_ntb_temp",
+    "double precision",
+    "0.4"
+   ],
+   [
+    "truss_etb_temp",
+    "double precision",
+    "0.5"
+   ],
+   [
+    "truss_stb_temp",
+    "double precision",
+    "0.7"
+   ],
+   [
+    "truss_wtb_temp",
+    "double precision",
+    "0.6"
+   ],
+   [
+    "truss_sts_temp",
+    "double precision",
+    "22.4"
+   ],
+   [
+    "truss_tsb_temp",
+    "double precision",
+    "25.7"
+   ],
+   [
+    "truss_tsm_temp",
+    "double precision",
+    "25.5"
+   ],
+   [
+    "truss_tst_temp",
+    "double precision",
+    "25.4"
+   ],
+   [
+    "topring_s_temp",
+    "double precision",
+    "0.8"
+   ],
+   [
+    "topring_w_temp",
+    "double precision",
+    "0.9"
+   ],
+   [
+    "hinge_s_temp",
+    "double precision",
+    "22.4"
+   ],
+   [
+    "hinge_w_temp",
+    "double precision",
+    "22.5"
+   ],
+   [
+    "chimney_os_temp",
+    "double precision",
+    "22.5"
+   ],
+   [
+    "chimney_ow_temp",
+    "double precision",
+    "22.5"
+   ],
+   [
+    "chimney_ib_temp",
+    "double precision",
+    "22.4"
+   ],
+   [
+    "chimney_im_temp",
+    "double precision",
+    "22.4"
+   ],
+   [
+    "chimney_it_temp",
+    "double precision",
+    "22.4"
+   ],
+   [
+    "centersection_i_temp",
+    "double precision",
+    "1.0"
+   ],
+   [
+    "centersection_o_temp",
+    "double precision",
+    "1.1"
+   ],
+   [
+    "primarycell_i_temp",
+    "double precision",
+    "1.2"
+   ],
+   [
+    "primarycell_o_temp",
+    "double precision",
+    "1.3"
+   ],
+   [
+    "casscage_i_temp",
+    "double precision",
+    "1.4"
+   ],
+   [
+    "casscage_o_temp",
+    "double precision",
+    "1.5"
+   ],
+   [
+    "decbore_temp",
+    "double precision",
+    "25.4"
+   ],
+   [
+    "mirror_status",
+    "text",
+    "air off"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-27 03:10:17.738046+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-27 03:10:17.746064+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "mirror_temp",
+    "double precision",
+    "None"
+   ],
+   [
+    "truss_temp",
+    "double precision",
+    "None"
+   ],
+   [
+    "mirror_cooling",
+    "integer",
+    "None"
+   ],
+   [
+    "wind_gust",
+    "integer",
+    "None"
+   ],
+   [
+    "wind_shake",
+    "integer",
+    "None"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_UPS",
+  "tablename": "environmentmonitor_ups",
+  "ncols": 36,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_ups",
+    "integer",
+    "1"
+   ],
+   [
+    "ups_timestamp",
+    "text",
+    "2019-03-27 03:10:14"
+   ],
+   [
+    "status",
+    "text",
+    "System Normal - On Line(7)"
+   ],
+   [
+    "state_output",
+    "text",
+    "On(1)"
+   ],
+   [
+    "state_charger",
+    "text",
+    "Battery String is Resting(4)"
+   ],
+   [
+    "state_battery_health",
+    "integer",
+    "86"
+   ],
+   [
+    "battery_test_started",
+    "text",
+    "false(0)"
+   ],
+   [
+    "batter_test_result",
+    "text",
+    "Passed(2)"
+   ],
+   [
+    "alarm_major",
+    "integer",
+    "0"
+   ],
+   [
+    "alarm_on",
+    "integer",
+    "0"
+   ],
+   [
+    "alarm_shutdown_imminent",
+    "integer",
+    "0"
+   ],
+   [
+    "alarm_check_battery",
+    "integer",
+    "0"
+   ],
+   [
+    "battery_seconds_left",
+    "double precision",
+    "10458.0"
+   ],
+   [
+    "battery_percent_left",
+    "double precision",
+    "100.0"
+   ],
+   [
+    "ambient_temp",
+    "double precision",
+    "17.4"
+   ],
+   [
+    "batterytemp",
+    "double precision",
+    "16.7"
+   ],
+   [
+    "input_volts_phase_a",
+    "double precision",
+    "278.1"
+   ],
+   [
+    "input_volts_phase_b",
+    "double precision",
+    "273.4"
+   ],
+   [
+    "input_volts_phase_c",
+    "double precision",
+    "274.4"
+   ],
+   [
+    "input_total_amps",
+    "double precision",
+    "44.3"
+   ],
+   [
+    "output_watts_phase_a",
+    "double precision",
+    "2200.0"
+   ],
+   [
+    "output_watts_phase_b",
+    "double precision",
+    "4200.0"
+   ],
+   [
+    "output_watts_phase_c",
+    "double precision",
+    "3100.0"
+   ],
+   [
+    "output_volt_amps_phase_a",
+    "double precision",
+    "2400.0"
+   ],
+   [
+    "output_volt_amps_phase_b",
+    "double precision",
+    "4400.0"
+   ],
+   [
+    "output_volt_amps_phase_c",
+    "double precision",
+    "3500.0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-27 03:10:14.728242+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-27 03:10:14.735143+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ],
+   [
+    "input_phase_a",
+    "double precision",
+    "None"
+   ],
+   [
+    "input_phase_b",
+    "double precision",
+    "None"
+   ],
+   [
+    "input_phase_c",
+    "double precision",
+    "None"
+   ],
+   [
+    "npos",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_TOWER",
+  "tablename": "environmentmonitor_tower",
+  "ncols": 18,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_tower",
+    "integer",
+    "1"
+   ],
+   [
+    "tower_timestamp",
+    "text",
+    "2019-03-27 03:08:42"
+   ],
+   [
+    "wind_speed",
+    "double precision",
+    "17.2"
+   ],
+   [
+    "wind_direction",
+    "double precision",
+    "168.0"
+   ],
+   [
+    "humidity",
+    "double precision",
+    "23.3"
+   ],
+   [
+    "pressure",
+    "double precision",
+    "792.1"
+   ],
+   [
+    "temperature",
+    "double precision",
+    "13.8"
+   ],
+   [
+    "dewpoint",
+    "double precision",
+    "-6.8"
+   ],
+   [
+    "split",
+    "double precision",
+    "20.6"
+   ],
+   [
+    "gust",
+    "double precision",
+    "99.3"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-27 03:10:18.740229+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-27 03:10:18.746293+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "dimm",
+    "double precision",
+    "None"
+   ],
+   [
+    "dimm_timestamp",
+    "text",
+    "None"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_COMPUTER",
+  "tablename": "environmentmonitor_computer",
+  "ncols": 14,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_computer",
+    "integer",
+    "1"
+   ],
+   [
+    "compterroom_timestamp",
+    "text",
+    "2019-03-27 03:10:14"
+   ],
+   [
+    "humidity",
+    "double precision",
+    "26.5"
+   ],
+   [
+    "dewpoint",
+    "double precision",
+    "-1.4"
+   ],
+   [
+    "ambient_temp",
+    "double precision",
+    "17.9"
+   ],
+   [
+    "hygrometer_temp",
+    "double precision",
+    "18.2"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-27 03:10:15.730868+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-27 03:10:15.736809+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "glycol_in",
+    "double precision",
+    "None"
+   ],
+   [
+    "glycol_return",
+    "double precision",
+    "None"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "TCS_INFO",
+  "tablename": "tcs_info",
+  "ncols": 59,
+  "error": null,
+  "columns": [
+   [
+    "tcs_info",
+    "integer",
+    "1"
+   ],
+   [
+    "tcs_timestamp",
+    "text",
+    "None"
+   ],
+   [
+    "date_ut",
+    "text",
+    "2019-01-31 17:02:26.967"
+   ],
+   [
+    "st",
+    "text",
+    "None"
+   ],
+   [
+    "mjd",
+    "double precision",
+    "58514.710463"
+   ],
+   [
+    "zd",
+    "double precision",
+    "73.349899"
+   ],
+   [
+    "airmass",
+    "double precision",
+    "3.455252"
+   ],
+   [
+    "parallactic",
+    "double precision",
+    "62.31074"
+   ],
+   [
+    "moon_ra",
+    "double precision",
+    "265.540181"
+   ],
+   [
+    "moon_dec",
+    "double precision",
+    "-20.668064"
+   ],
+   [
+    "tracking",
+    "integer",
+    "0"
+   ],
+   [
+    "slew_timer",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "beyond_pole",
+    "integer",
+    "0"
+   ],
+   [
+    "mount_incontrol",
+    "integer",
+    "0"
+   ],
+   [
+    "mount_inposition",
+    "integer",
+    "0"
+   ],
+   [
+    "mount_ha",
+    "double precision",
+    "89.502176"
+   ],
+   [
+    "mount_ha_sexagesimal",
+    "text",
+    "+05:58:00.522"
+   ],
+   [
+    "mount_dec",
+    "double precision",
+    "31.967558"
+   ],
+   [
+    "mount_dec_sexagesimal",
+    "text",
+    "+031:58:03.209"
+   ],
+   [
+    "mount_az",
+    "double precision",
+    "297.694236"
+   ],
+   [
+    "mount_az_sexagesimal",
+    "text",
+    "297:41:39.251"
+   ],
+   [
+    "mount_el",
+    "double precision",
+    "16.650101"
+   ],
+   [
+    "mount_el_sexagesimal",
+    "text",
+    "16:39:00.362"
+   ],
+   [
+    "mount_offset_ra",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "mount_offset_dec",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "sky_ra",
+    "double precision",
+    "184.894802"
+   ],
+   [
+    "sky_ra_sexagesimal",
+    "text",
+    "12:19:34.753"
+   ],
+   [
+    "sky_dec",
+    "double precision",
+    "32.070716"
+   ],
+   [
+    "sky_dec_sexagesimal",
+    "text",
+    "+32:04:14.579"
+   ],
+   [
+    "target_ra",
+    "double precision",
+    "262.75577"
+   ],
+   [
+    "target_ra_sexagesimal",
+    "text",
+    "17:31:01.385"
+   ],
+   [
+    "target_dec",
+    "double precision",
+    "31.9633"
+   ],
+   [
+    "target_dec_sexagesimal",
+    "text",
+    "+31:57:47.880"
+   ],
+   [
+    "target_az",
+    "double precision",
+    "273.018266"
+   ],
+   [
+    "target_az_sexagesimal",
+    "text",
+    "273:01:05.759"
+   ],
+   [
+    "target_el",
+    "double precision",
+    "80.070596"
+   ],
+   [
+    "target_el_sexagesimal",
+    "text",
+    "80:04:14.147"
+   ],
+   [
+    "target_offset_ra",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "target_offset_dec",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "epoch",
+    "double precision",
+    "2000.0"
+   ],
+   [
+    "equinox",
+    "double precision",
+    "2000.0"
+   ],
+   [
+    "guider_offset_ra",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "guider_offset_dec",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "at_zenith",
+    "integer",
+    "0"
+   ],
+   [
+    "at_whitespot",
+    "integer",
+    "0"
+   ],
+   [
+    "at_se_annex",
+    "integer",
+    "0"
+   ],
+   [
+    "dome_az",
+    "double precision",
+    "297.694236"
+   ],
+   [
+    "dome_inposition",
+    "integer",
+    "0"
+   ],
+   [
+    "mirror_ready",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-01-31 17:02:27.417953+00:00"
+   ],
+   [
+    "connected",
+    "integer",
+    "1"
+   ],
+   [
+    "tcs_state",
+    "text",
+    "READY"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-01-31 17:02:27.426671+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "glycol",
+    "double precision",
+    "None"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ],
+   [
+    "moon_sep",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "OCS_OBSINFO",
+  "tablename": "ocs_obsinfo",
+  "ncols": 10,
+  "error": null,
+  "columns": [
+   [
+    "ocs_obsinfo",
+    "integer",
+    "1"
+   ],
+   [
+    "observers",
+    "text",
+    "DESIObserver"
+   ],
+   [
+    "lead",
+    "text",
+    "RunManager"
+   ],
+   [
+    "program",
+    "text",
+    "Commissioning"
+   ],
+   [
+    "propid",
+    "text",
+    "2019B-5000"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-07-29 20:14:24.906300+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desisim_20200729"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-07-29 20:14:24.906966+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SKYCAM_TELEMETRY",
+  "tablename": "skycam_telemetry",
+  "ncols": 17,
+  "error": null,
+  "columns": [
+   [
+    "skycam_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2020-09-10T20:58:58.233933"
+   ],
+   [
+    "unit",
+    "integer",
+    "1"
+   ],
+   [
+    "role",
+    "text",
+    "SKYCAM1"
+   ],
+   [
+    "ccdtemp",
+    "double precision",
+    "14.94"
+   ],
+   [
+    "fanenabled",
+    "integer",
+    "2"
+   ],
+   [
+    "fanpower",
+    "integer",
+    "50"
+   ],
+   [
+    "settemp",
+    "double precision",
+    "15.0"
+   ],
+   [
+    "ccdpower",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "cooling",
+    "integer",
+    "1"
+   ],
+   [
+    "status",
+    "text",
+    "SUCCESS"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-09-10 20:58:58.234542+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "skytest"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-09-10 20:58:58.235215+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "OCS_GFADATA",
+  "tablename": "ocs_gfadata",
+  "ncols": 42,
+  "error": null,
+  "columns": [
+   [
+    "ocs_gfadata",
+    "integer",
+    "1"
+   ],
+   [
+    "dtheta",
+    "double precision",
+    "None"
+   ],
+   [
+    "eta0",
+    "double precision",
+    "None"
+   ],
+   [
+    "f1",
+    "double precision",
+    "None"
+   ],
+   [
+    "f2",
+    "double precision",
+    "None"
+   ],
+   [
+    "f3",
+    "double precision",
+    "None"
+   ],
+   [
+    "f4",
+    "double precision",
+    "None"
+   ],
+   [
+    "fieldrot",
+    "double precision",
+    "None"
+   ],
+   [
+    "fwhmsec",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexrate",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexrot",
+    "double precision",
+    "None"
+   ],
+   [
+    "hextot",
+    "double precision",
+    "None"
+   ],
+   [
+    "magoff",
+    "double precision",
+    "0.6"
+   ],
+   [
+    "ngfa",
+    "integer",
+    "None"
+   ],
+   [
+    "ngood",
+    "integer",
+    "None"
+   ],
+   [
+    "pixscale",
+    "double precision",
+    "None"
+   ],
+   [
+    "project",
+    "text",
+    "None"
+   ],
+   [
+    "psi",
+    "double precision",
+    "None"
+   ],
+   [
+    "refract",
+    "double precision",
+    "None"
+   ],
+   [
+    "rmsx",
+    "double precision",
+    "None"
+   ],
+   [
+    "rmsy",
+    "double precision",
+    "None"
+   ],
+   [
+    "rnutat",
+    "double precision",
+    "None"
+   ],
+   [
+    "rpolar",
+    "double precision",
+    "None"
+   ],
+   [
+    "rprecess",
+    "double precision",
+    "None"
+   ],
+   [
+    "rtheta",
+    "double precision",
+    "None"
+   ],
+   [
+    "rtheta0",
+    "double precision",
+    "None"
+   ],
+   [
+    "rthetaa",
+    "double precision",
+    "None"
+   ],
+   [
+    "rthetaaberr",
+    "double precision",
+    "None"
+   ],
+   [
+    "rthetatot",
+    "double precision",
+    "None"
+   ],
+   [
+    "rzrot",
+    "double precision",
+    "None"
+   ],
+   [
+    "s",
+    "double precision",
+    "None"
+   ],
+   [
+    "seqid",
+    "integer",
+    "None"
+   ],
+   [
+    "tempscale",
+    "double precision",
+    "None"
+   ],
+   [
+    "theta1",
+    "double precision",
+    "None"
+   ],
+   [
+    "thetacorr",
+    "double precision",
+    "None"
+   ],
+   [
+    "xi0",
+    "double precision",
+    "None"
+   ],
+   [
+    "zd",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-12-18 03:57:13.859744+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-12-18 03:57:13.861459+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SKY_SKYLEVEL",
+  "tablename": "sky_skylevel",
+  "ncols": 9,
+  "error": null,
+  "columns": [
+   [
+    "sky_skylevel",
+    "integer",
+    "366587"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2025-10-20 07:40:33.001003+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20251019"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2025-10-20 07:40:33.002374+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "average",
+    "double precision",
+    "1.464"
+   ],
+   [
+    "skycam1",
+    "double precision",
+    "1.39"
+   ],
+   [
+    "skycam0",
+    "double precision",
+    "1.527"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "LUT_CONFIGURATION",
+  "tablename": "lut_configuration",
+  "ncols": 12,
+  "error": null,
+  "columns": [
+   [
+    "lut_configuration",
+    "integer",
+    "1"
+   ],
+   [
+    "usetellut",
+    "integer",
+    "1"
+   ],
+   [
+    "usetemplut",
+    "integer",
+    "1"
+   ],
+   [
+    "useztrim",
+    "integer",
+    "0"
+   ],
+   [
+    "temp0",
+    "double precision",
+    "7.0"
+   ],
+   [
+    "tellutmode",
+    "ARRAY",
+    "[1, 1, 1, 1, 1, 1]"
+   ],
+   [
+    "useaos",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-02-19 15:36:54.122372+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210218"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-02-19 15:36:54.123605+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "LUT_LOOKUP",
+  "tablename": "lut_lookup",
+  "ncols": 16,
+  "error": null,
+  "columns": [
+   [
+    "lut_lookup",
+    "integer",
+    "1"
+   ],
+   [
+    "az",
+    "double precision",
+    "65.122662"
+   ],
+   [
+    "el",
+    "double precision",
+    "89.826659"
+   ],
+   [
+    "temperature",
+    "double precision",
+    "10.47"
+   ],
+   [
+    "use_ztrim",
+    "integer",
+    "0"
+   ],
+   [
+    "use_temp",
+    "integer",
+    "1"
+   ],
+   [
+    "use_table",
+    "integer",
+    "1"
+   ],
+   [
+    "use_aos",
+    "integer",
+    "0"
+   ],
+   [
+    "hexapod",
+    "ARRAY",
+    "[1140.0, -480.0, 371.835, -3.0, 25.0, 0.0, 0.0]"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-02-19 19:13:35.408225+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210218"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-02-19 19:13:35.409404+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "tel_lookup",
+    "ARRAY",
+    "None"
+   ],
+   [
+    "temp_lookup",
+    "ARRAY",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ETC_SEEING",
+  "tablename": "etc_seeing",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "etc_seeing",
+    "integer",
+    "1"
+   ],
+   [
+    "seeing",
+    "double precision",
+    "nan"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2021-03-10T11:51:50.894211"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-03-10 11:51:50.899488+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210309"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-03-10 11:51:50.900023+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ETC_SKYLEVEL",
+  "tablename": "etc_skylevel",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "etc_skylevel",
+    "integer",
+    "1"
+   ],
+   [
+    "skylevel",
+    "double precision",
+    "nan"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2021-03-10T11:51:50.894211"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-03-10 11:51:50.909456+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210309"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-03-10 11:51:50.909887+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ETC_REQUESTS",
+  "tablename": "etc_requests",
+  "ncols": 10,
+  "error": null,
+  "columns": [
+   [
+    "etc_requests",
+    "integer",
+    "1"
+   ],
+   [
+    "about_to_split",
+    "integer",
+    "0"
+   ],
+   [
+    "split_request",
+    "integer",
+    "0"
+   ],
+   [
+    "about_to_stop",
+    "integer",
+    "0"
+   ],
+   [
+    "stop_request",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-03-09 22:55:33.412086+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210309"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-03-09 22:55:33.413815+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ETC_TRANSPARENCY",
+  "tablename": "etc_transparency",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "etc_transparency",
+    "integer",
+    "1"
+   ],
+   [
+    "transparency",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2021-03-09T22:57:56.750673"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-03-09 22:57:56.760682+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210309"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-03-09 22:57:56.762318+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PERFORMANCE_NIGHT",
+  "tablename": "performance_night",
+  "ncols": 13,
+  "error": null,
+  "columns": [
+   [
+    "performance_night",
+    "integer",
+    "1"
+   ],
+   [
+    "obsday",
+    "text",
+    "20210409"
+   ],
+   [
+    "scheduled_shutdown",
+    "integer",
+    "0"
+   ],
+   [
+    "dawn",
+    "text",
+    "05:08:56"
+   ],
+   [
+    "dusk",
+    "text",
+    "19:45:15"
+   ],
+   [
+    "interval",
+    "double precision",
+    "5.0"
+   ],
+   [
+    "seconds_between_nautical_twilight",
+    "integer",
+    "33821"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-04-09 22:53:58.375797+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210408"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-04-09 22:53:58.376548+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "seconds_between_twilight",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PERFORMANCE_CURRENT",
+  "tablename": "performance_current",
+  "ncols": 59,
+  "error": null,
+  "columns": [
+   [
+    "performance_current",
+    "integer",
+    "1"
+   ],
+   [
+    "system_ready",
+    "integer",
+    "1"
+   ],
+   [
+    "nfs",
+    "integer",
+    "0"
+   ],
+   [
+    "ocs_active",
+    "integer",
+    "0"
+   ],
+   [
+    "guider_loop",
+    "integer",
+    "0"
+   ],
+   [
+    "focus_loop",
+    "integer",
+    "0"
+   ],
+   [
+    "sky_loop",
+    "integer",
+    "0"
+   ],
+   [
+    "illuminator",
+    "integer",
+    "0"
+   ],
+   [
+    "specman_shutter",
+    "integer",
+    "0"
+   ],
+   [
+    "specman_digitize",
+    "integer",
+    "0"
+   ],
+   [
+    "tcs_tracking",
+    "integer",
+    "0"
+   ],
+   [
+    "tcs_incontrol",
+    "integer",
+    "0"
+   ],
+   [
+    "tcs_slewing",
+    "integer",
+    "0"
+   ],
+   [
+    "gfa_vccd",
+    "integer",
+    "1"
+   ],
+   [
+    "spectrograph_vccd",
+    "integer",
+    "1"
+   ],
+   [
+    "gfa_opsstate",
+    "integer",
+    "1"
+   ],
+   [
+    "petal_opsstate",
+    "integer",
+    "0"
+   ],
+   [
+    "opsstate",
+    "integer",
+    "0"
+   ],
+   [
+    "weather",
+    "integer",
+    "0"
+   ],
+   [
+    "instrument",
+    "integer",
+    "0"
+   ],
+   [
+    "mayall",
+    "integer",
+    "1"
+   ],
+   [
+    "other",
+    "integer",
+    "0"
+   ],
+   [
+    "obsday",
+    "text",
+    "20210409"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-04-09 22:53:58.412229+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210408"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-04-09 22:53:58.413387+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "desi_interlock",
+    "integer",
+    "None"
+   ],
+   [
+    "ocs_monitor",
+    "integer",
+    "None"
+   ],
+   [
+    "mirror_cover",
+    "integer",
+    "None"
+   ],
+   [
+    "dome_shutter",
+    "integer",
+    "None"
+   ],
+   [
+    "seq_active",
+    "integer",
+    "None"
+   ],
+   [
+    "fiducials",
+    "integer",
+    "None"
+   ],
+   [
+    "move_prepare",
+    "integer",
+    "None"
+   ],
+   [
+    "move_execute",
+    "integer",
+    "None"
+   ],
+   [
+    "nfsproc",
+    "integer",
+    "None"
+   ],
+   [
+    "gfaproc",
+    "integer",
+    "None"
+   ],
+   [
+    "posproc",
+    "integer",
+    "None"
+   ],
+   [
+    "fvcproc",
+    "integer",
+    "None"
+   ],
+   [
+    "forproc",
+    "integer",
+    "None"
+   ],
+   [
+    "spotmatch",
+    "integer",
+    "None"
+   ],
+   [
+    "last_updated",
+    "text",
+    "None"
+   ],
+   [
+    "acquisition",
+    "integer",
+    "None"
+   ],
+   [
+    "idle",
+    "integer",
+    "None"
+   ],
+   [
+    "specman_prepare",
+    "integer",
+    "None"
+   ],
+   [
+    "ready",
+    "integer",
+    "None"
+   ],
+   [
+    "fvc",
+    "integer",
+    "None"
+   ],
+   [
+    "about_to_split",
+    "integer",
+    "None"
+   ],
+   [
+    "split_request",
+    "integer",
+    "None"
+   ],
+   [
+    "about_to_stop",
+    "integer",
+    "None"
+   ],
+   [
+    "stop_request",
+    "integer",
+    "None"
+   ],
+   [
+    "monitored",
+    "integer",
+    "None"
+   ],
+   [
+    "handle_fvc",
+    "integer",
+    "None"
+   ],
+   [
+    "gfaadjust",
+    "integer",
+    "None"
+   ],
+   [
+    "nfsadjust",
+    "integer",
+    "None"
+   ],
+   [
+    "surveyobs",
+    "integer",
+    "None"
+   ],
+   [
+    "obs",
+    "integer",
+    "None"
+   ],
+   [
+    "nfsrequest",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_PTL-STATUS",
+  "tablename": "pc_ptl_status",
+  "ncols": 28,
+  "error": null,
+  "columns": [
+   [
+    "pc_ptl_status",
+    "integer",
+    "1"
+   ],
+   [
+    "pospwr_ps2_en",
+    "integer",
+    "0"
+   ],
+   [
+    "canbrd1_en",
+    "integer",
+    "1"
+   ],
+   [
+    "gfapwr_en",
+    "integer",
+    "0"
+   ],
+   [
+    "gfa_fan_out_en",
+    "integer",
+    "None"
+   ],
+   [
+    "gfa_fan_in_en",
+    "integer",
+    "None"
+   ],
+   [
+    "canbusfault",
+    "integer",
+    "0"
+   ],
+   [
+    "pcid",
+    "integer",
+    "1"
+   ],
+   [
+    "time",
+    "timestamp with time zone",
+    "2020-11-03 22:06:37.400641+00:00"
+   ],
+   [
+    "canbrd2_en",
+    "integer",
+    "1"
+   ],
+   [
+    "buff_en2",
+    "integer",
+    "1"
+   ],
+   [
+    "pospwr_ps2_fbk",
+    "integer",
+    "0"
+   ],
+   [
+    "pospwr_ps1_fbk",
+    "integer",
+    "0"
+   ],
+   [
+    "ccdbias",
+    "integer",
+    "0"
+   ],
+   [
+    "status",
+    "jsonb",
+    "{}"
+   ],
+   [
+    "fxc_okay",
+    "integer",
+    "0"
+   ],
+   [
+    "ccdbiasenabled",
+    "integer",
+    "0"
+   ],
+   [
+    "telemetryfault",
+    "integer",
+    "0"
+   ],
+   [
+    "pospwr_ps1_en",
+    "integer",
+    "0"
+   ],
+   [
+    "buff_en1",
+    "integer",
+    "1"
+   ],
+   [
+    "gfa_ovrtmp",
+    "integer",
+    "0"
+   ],
+   [
+    "tec_ctrl",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-03 22:06:37.530836+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-03 22:06:37.536176+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_PTL-SENSORS",
+  "tablename": "pc_ptl_sensors",
+  "ncols": 43,
+  "error": null,
+  "columns": [
+   [
+    "pc_ptl_sensors",
+    "integer",
+    "269528"
+   ],
+   [
+    "gxbtime",
+    "timestamp with time zone",
+    "2020-12-04 22:08:55.539479+00:00"
+   ],
+   [
+    "gfa_fan_in_pwm",
+    "double precision",
+    "15.0"
+   ],
+   [
+    "adc_gfa",
+    "double precision",
+    "11.27"
+   ],
+   [
+    "adctime",
+    "timestamp with time zone",
+    "2020-12-04 22:08:49.980366+00:00"
+   ],
+   [
+    "gfa_fan_out_tach",
+    "integer",
+    "7150"
+   ],
+   [
+    "adc_fan",
+    "double precision",
+    "12.25"
+   ],
+   [
+    "pcid",
+    "integer",
+    "8"
+   ],
+   [
+    "gfa_fan_out_pwm",
+    "double precision",
+    "15.0"
+   ],
+   [
+    "gxbcur",
+    "double precision",
+    "1.610379"
+   ],
+   [
+    "gfatime",
+    "timestamp with time zone",
+    "2020-12-04 22:08:58.597500+00:00"
+   ],
+   [
+    "temptime",
+    "timestamp with time zone",
+    "2020-12-04 22:08:55.544474+00:00"
+   ],
+   [
+    "gfa_fan_in_tach",
+    "integer",
+    "10201"
+   ],
+   [
+    "adc_buf",
+    "double precision",
+    "3.28"
+   ],
+   [
+    "adc_bb",
+    "double precision",
+    "5.23"
+   ],
+   [
+    "fpp_temp_sensor_3",
+    "double precision",
+    "10.937"
+   ],
+   [
+    "pbox_temp_sensor",
+    "double precision",
+    "20.5"
+   ],
+   [
+    "adc_can",
+    "double precision",
+    "12.23"
+   ],
+   [
+    "fpp_temp_sensor_2",
+    "double precision",
+    "11.312"
+   ],
+   [
+    "fpp_temp_sensor_1",
+    "double precision",
+    "15.625"
+   ],
+   [
+    "time",
+    "timestamp with time zone",
+    "2020-12-04 22:08:58.914472+00:00"
+   ],
+   [
+    "gxb_temp_sensor",
+    "double precision",
+    "19.40625"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-12-04 22:08:58.921855+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-12-04 22:08:58.948420+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "0"
+   ],
+   [
+    "fpp_temp_sensor_4",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_5",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_6",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_7",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_8",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_9",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_10",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_11",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_12",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_13",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_split_v",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_ppwr2_v",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_ppwr1_c",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_ppwr2_c",
+    "double precision",
+    "None"
+   ],
+   [
+    "adc_ppwr1_v",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_PTL-POWERUP",
+  "tablename": "pc_ptl_powerup",
+  "ncols": 14,
+  "error": null,
+  "columns": [
+   [
+    "pc_ptl_powerup",
+    "integer",
+    "1"
+   ],
+   [
+    "time",
+    "timestamp with time zone",
+    "2020-11-06 03:37:55.832326+00:00"
+   ],
+   [
+    "pcid",
+    "integer",
+    "907"
+   ],
+   [
+    "psfid_sysclks",
+    "jsonb",
+    "None"
+   ],
+   [
+    "thresholds",
+    "jsonb",
+    "{'CURR_GXB_WARN': 100, 'TACH_FAN_WARN': 2000, 'TE..."
+   ],
+   [
+    "status",
+    "jsonb",
+    "{}"
+   ],
+   [
+    "network_status",
+    "jsonb",
+    "FAILED"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-06 03:37:55.843384+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-06 03:37:55.844104+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ],
+   [
+    "posfid_sysclks",
+    "jsonb",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_PTL-TEMPS",
+  "tablename": "pc_ptl_temps",
+  "ncols": 31,
+  "error": null,
+  "columns": [
+   [
+    "pc_ptl_temps",
+    "integer",
+    "1"
+   ],
+   [
+    "time",
+    "timestamp with time zone",
+    "2020-11-06 03:37:55.831579+00:00"
+   ],
+   [
+    "pcid",
+    "integer",
+    "907"
+   ],
+   [
+    "posfid_imons",
+    "jsonb",
+    "{'9070': {'907000': None, '907001': None, '907002..."
+   ],
+   [
+    "posfid_temps",
+    "jsonb",
+    "{'999': 32.92}"
+   ],
+   [
+    "posfid_temps_max",
+    "double precision",
+    "32.92"
+   ],
+   [
+    "posfid_temps_mean",
+    "double precision",
+    "32.920000000000016"
+   ],
+   [
+    "posfid_temps_median",
+    "double precision",
+    "32.92"
+   ],
+   [
+    "posfid_state",
+    "text",
+    "unknown"
+   ],
+   [
+    "posfid_instatesince",
+    "double precision",
+    "None"
+   ],
+   [
+    "posfid_timelastalarm",
+    "double precision",
+    "None"
+   ],
+   [
+    "pos_temps_mean",
+    "double precision",
+    "None"
+   ],
+   [
+    "pos_temps_median",
+    "double precision",
+    "None"
+   ],
+   [
+    "pos_temps_max",
+    "double precision",
+    "None"
+   ],
+   [
+    "posfid_temps_n_above_th",
+    "integer",
+    "0"
+   ],
+   [
+    "fid_temps",
+    "jsonb",
+    "None"
+   ],
+   [
+    "fid_temps_max",
+    "double precision",
+    "None"
+   ],
+   [
+    "fid_temps_mean",
+    "double precision",
+    "None"
+   ],
+   [
+    "fid_temps_median",
+    "double precision",
+    "None"
+   ],
+   [
+    "fid_temps_n_above_th",
+    "integer",
+    "None"
+   ],
+   [
+    "onewire",
+    "jsonb",
+    "None"
+   ],
+   [
+    "threshold_fid_warn",
+    "double precision",
+    "None"
+   ],
+   [
+    "threshold_fid_alarm",
+    "double precision",
+    "None"
+   ],
+   [
+    "threshold_pos_warn",
+    "double precision",
+    "None"
+   ],
+   [
+    "threshold_pos_alarm",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-06 03:37:55.849310+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-06 03:37:55.850637+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "HEXAPOD_ROTATOR",
+  "tablename": "hexapod_rotator",
+  "ncols": 16,
+  "error": null,
+  "columns": [
+   [
+    "hexapod_rotator",
+    "integer",
+    "1"
+   ],
+   [
+    "rot_enabled",
+    "integer",
+    "0"
+   ],
+   [
+    "rot_stopped",
+    "integer",
+    "1"
+   ],
+   [
+    "simulated",
+    "integer",
+    "0"
+   ],
+   [
+    "rot_offset",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "rot_rate",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "rot_interval",
+    "double precision",
+    "60.0"
+   ],
+   [
+    "ra",
+    "double precision",
+    "None"
+   ],
+   [
+    "dec",
+    "double precision",
+    "None"
+   ],
+   [
+    "enabled",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-12 15:01:18.980958+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desisim_20201111"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-12 15:01:18.982177+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "expid",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_FPE",
+  "tablename": "environmentmonitor_fpe",
+  "ncols": 31,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_fpe",
+    "integer",
+    "1"
+   ],
+   [
+    "fpe_timestamp",
+    "text",
+    "2020-11-13 14:52:37"
+   ],
+   [
+    "humidity",
+    "double precision",
+    "0.97"
+   ],
+   [
+    "temperature",
+    "double precision",
+    "9.99"
+   ],
+   [
+    "dewpoint",
+    "double precision",
+    "-40.0"
+   ],
+   [
+    "shack_dryair_temperature",
+    "double precision",
+    "19.6"
+   ],
+   [
+    "shack_dryair_water_ppm",
+    "double precision",
+    "5806.0"
+   ],
+   [
+    "shack_dryair_pressure_abs_bar",
+    "double precision",
+    "0.8"
+   ],
+   [
+    "shack_dryair_pressure_gauge_psi",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "shack_dryair_dewpoint_dryer",
+    "double precision",
+    "-3.3"
+   ],
+   [
+    "shack_dryair_dewpoint_atmos",
+    "double precision",
+    "-0.5"
+   ],
+   [
+    "fpe_dryair_temperature",
+    "double precision",
+    "31.0"
+   ],
+   [
+    "fpe_dryair_water_ppm",
+    "double precision",
+    "1.0"
+   ],
+   [
+    "fpe_dryair_pressure_abs_bar",
+    "double precision",
+    "5.665"
+   ],
+   [
+    "fpe_dryair_pressure_gauge_psi",
+    "double precision",
+    "70.8"
+   ],
+   [
+    "fpe_dryair_dewpoint_dryer",
+    "double precision",
+    "-66.1"
+   ],
+   [
+    "fpe_dryair_dewpoint_atmos",
+    "double precision",
+    "-77.5"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-13 14:52:38.594504+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-13 14:52:38.601261+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "coude_humidity",
+    "double precision",
+    "None"
+   ],
+   [
+    "coude_temperature",
+    "double precision",
+    "None"
+   ],
+   [
+    "coude_dewpoint",
+    "double precision",
+    "None"
+   ],
+   [
+    "fp_glycol_supply",
+    "double precision",
+    "None"
+   ],
+   [
+    "fp_glycol_return_a",
+    "double precision",
+    "None"
+   ],
+   [
+    "fp_glycol_return_b",
+    "double precision",
+    "None"
+   ],
+   [
+    "cryostat_glycol_supply",
+    "double precision",
+    "None"
+   ],
+   [
+    "cryostat_glycol_return",
+    "double precision",
+    "None"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_ADCS",
+  "tablename": "fxc_adcs",
+  "ncols": 13,
+  "error": null,
+  "columns": [
+   [
+    "fxc_adcs",
+    "integer",
+    "1"
+   ],
+   [
+    "adc3",
+    "integer",
+    "0"
+   ],
+   [
+    "adc2",
+    "integer",
+    "0"
+   ],
+   [
+    "adc6",
+    "integer",
+    "2048"
+   ],
+   [
+    "adc0",
+    "integer",
+    "0"
+   ],
+   [
+    "adc5",
+    "integer",
+    "2033"
+   ],
+   [
+    "adc1",
+    "integer",
+    "0"
+   ],
+   [
+    "adc4",
+    "integer",
+    "976"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-17 17:15:57.128832+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-17 17:15:57.141174+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_CHILLER",
+  "tablename": "fxc_chiller",
+  "ncols": 24,
+  "error": null,
+  "columns": [
+   [
+    "fxc_chiller",
+    "integer",
+    "39909"
+   ],
+   [
+    "chiller_refrigerator_running_time",
+    "text",
+    "2020-11-18T20:53:33.932392+00:00"
+   ],
+   [
+    "chiller_setpoint",
+    "double precision",
+    "10.0"
+   ],
+   [
+    "chiller_status_time",
+    "text",
+    "2020-11-18T20:53:33.923409+00:00"
+   ],
+   [
+    "chiller_fluid_level",
+    "integer",
+    "1"
+   ],
+   [
+    "chiller_running_time",
+    "text",
+    "2020-11-18T20:53:33.932206+00:00"
+   ],
+   [
+    "chiller_running",
+    "integer",
+    "1"
+   ],
+   [
+    "chiller_fluid_level_time",
+    "text",
+    "2020-11-18T20:53:33.932001+00:00"
+   ],
+   [
+    "chiller_status",
+    "jsonb",
+    "{'DI1': 14, 'DI2': 7, 'DO1': 40, 'DO2': 174, 'PID..."
+   ],
+   [
+    "chiller_setpoint_time",
+    "text",
+    "2020-11-18T20:53:33.931695+00:00"
+   ],
+   [
+    "chiller_refrigerator_running",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-18 20:53:34.842655+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-18 20:53:35.012852+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "chiller_pressure",
+    "double precision",
+    "None"
+   ],
+   [
+    "chiller_flowrate",
+    "double precision",
+    "None"
+   ],
+   [
+    "chiller_temperature",
+    "double precision",
+    "None"
+   ],
+   [
+    "chiller_heat_pct",
+    "double precision",
+    "None"
+   ],
+   [
+    "chiller_cool_pct",
+    "double precision",
+    "None"
+   ],
+   [
+    "chiller_error1bits",
+    "integer",
+    "None"
+   ],
+   [
+    "chiller_error2bits",
+    "integer",
+    "None"
+   ],
+   [
+    "chiller_warnbits",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_TEMPS",
+  "tablename": "fxc_temps",
+  "ncols": 16,
+  "error": null,
+  "columns": [
+   [
+    "fxc_temps",
+    "integer",
+    "1"
+   ],
+   [
+    "hxa_air",
+    "double precision",
+    "16.937"
+   ],
+   [
+    "fpr_2",
+    "double precision",
+    "16.937"
+   ],
+   [
+    "fpr_1",
+    "double precision",
+    "16.875"
+   ],
+   [
+    "exterior_air",
+    "double precision",
+    "18.125"
+   ],
+   [
+    "fpe_air_high",
+    "double precision",
+    "17.812"
+   ],
+   [
+    "fpe_air_low",
+    "double precision",
+    "16.937"
+   ],
+   [
+    "coolant_in",
+    "double precision",
+    "17.0"
+   ],
+   [
+    "adjacent_ptl",
+    "double precision",
+    "16.875"
+   ],
+   [
+    "coolant_out",
+    "double precision",
+    "17.062"
+   ],
+   [
+    "air_fxc",
+    "double precision",
+    "20.875"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-17 17:15:56.907882+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-17 17:15:56.992291+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_PID",
+  "tablename": "fxc_pid",
+  "ncols": 17,
+  "error": null,
+  "columns": [
+   [
+    "fxc_pid",
+    "integer",
+    "435"
+   ],
+   [
+    "pid_target",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_dgain",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_dmin",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_imin",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_sensor",
+    "double precision",
+    "None"
+   ],
+   [
+    "pid_igain",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_enabled",
+    "integer",
+    "0"
+   ],
+   [
+    "pid_smax",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_smin",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_offset",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "pid_pgain",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-18 20:53:19.689003+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-18 20:53:19.737986+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PERFORMANCE_ACCUMULATED",
+  "tablename": "performance_accumulated",
+  "ncols": 60,
+  "error": null,
+  "columns": [
+   [
+    "performance_accumulated",
+    "integer",
+    "1"
+   ],
+   [
+    "system_ready",
+    "double precision",
+    "5.04"
+   ],
+   [
+    "nfs",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "ocs_active",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "guider_loop",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "focus_loop",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "sky_loop",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "illuminator",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "specman_shutter",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "specman_digitize",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "tcs_tracking",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "tcs_incontrol",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "tcs_slewing",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "gfa_vccd",
+    "double precision",
+    "5.02"
+   ],
+   [
+    "spectrograph_vccd",
+    "double precision",
+    "5.02"
+   ],
+   [
+    "gfa_opsstate",
+    "double precision",
+    "5.03"
+   ],
+   [
+    "petal_opsstate",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "opsstate",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "weather",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "instrument",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "mayall",
+    "double precision",
+    "5.05"
+   ],
+   [
+    "other",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "obsday",
+    "text",
+    "20210409"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-04-09 22:53:58.418345+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210408"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-04-09 22:53:58.419361+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "desi_interlock",
+    "double precision",
+    "None"
+   ],
+   [
+    "ocs_monitor",
+    "double precision",
+    "None"
+   ],
+   [
+    "mirror_cover",
+    "double precision",
+    "None"
+   ],
+   [
+    "dome_shutter",
+    "double precision",
+    "None"
+   ],
+   [
+    "seq_active",
+    "double precision",
+    "None"
+   ],
+   [
+    "fiducials",
+    "double precision",
+    "None"
+   ],
+   [
+    "move_prepare",
+    "double precision",
+    "None"
+   ],
+   [
+    "move_execute",
+    "double precision",
+    "None"
+   ],
+   [
+    "nfsproc",
+    "double precision",
+    "None"
+   ],
+   [
+    "gfaproc",
+    "double precision",
+    "None"
+   ],
+   [
+    "posproc",
+    "double precision",
+    "None"
+   ],
+   [
+    "fvcproc",
+    "double precision",
+    "None"
+   ],
+   [
+    "forproc",
+    "double precision",
+    "None"
+   ],
+   [
+    "spotmatch",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_updated",
+    "text",
+    "None"
+   ],
+   [
+    "acquisition",
+    "double precision",
+    "None"
+   ],
+   [
+    "idle",
+    "double precision",
+    "None"
+   ],
+   [
+    "specman_prepare",
+    "double precision",
+    "None"
+   ],
+   [
+    "ready",
+    "double precision",
+    "None"
+   ],
+   [
+    "fvc",
+    "double precision",
+    "None"
+   ],
+   [
+    "about_to_split",
+    "double precision",
+    "None"
+   ],
+   [
+    "split_request",
+    "double precision",
+    "None"
+   ],
+   [
+    "about_to_stop",
+    "double precision",
+    "None"
+   ],
+   [
+    "stop_request",
+    "double precision",
+    "None"
+   ],
+   [
+    "monitored",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_between_twilight",
+    "integer",
+    "None"
+   ],
+   [
+    "handle_fvc",
+    "double precision",
+    "None"
+   ],
+   [
+    "gfaadjust",
+    "double precision",
+    "None"
+   ],
+   [
+    "nfsadjust",
+    "double precision",
+    "None"
+   ],
+   [
+    "surveyobs",
+    "double precision",
+    "None"
+   ],
+   [
+    "obs",
+    "double precision",
+    "None"
+   ],
+   [
+    "nfsrequest",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_MISC",
+  "tablename": "fxc_misc",
+  "ncols": 32,
+  "error": null,
+  "columns": [
+   [
+    "fxc_misc",
+    "integer",
+    "46341"
+   ],
+   [
+    "bb_spare_en_time",
+    "text",
+    "2020-11-18T23:18:10.000588+00:00"
+   ],
+   [
+    "bb_chill_en_time",
+    "text",
+    "2020-11-18T23:18:09.159764+00:00"
+   ],
+   [
+    "bb_posfid_en_time",
+    "text",
+    "2020-11-18T23:18:09.844336+00:00"
+   ],
+   [
+    "bb_posfid_en",
+    "text",
+    "off"
+   ],
+   [
+    "fan_48v_ok_time",
+    "text",
+    "2020-11-18T23:17:44.307665+00:00"
+   ],
+   [
+    "last_sw_limits_error_time",
+    "text",
+    "2020-11-18T21:12:09.778861+00:00"
+   ],
+   [
+    "bb_chill_en",
+    "text",
+    "on"
+   ],
+   [
+    "sw_limits_time",
+    "text",
+    "2020-11-18T20:53:19.617682+00:00"
+   ],
+   [
+    "sw_limits_en_time",
+    "text",
+    "2020-11-18T20:53:33.854984+00:00"
+   ],
+   [
+    "auto_refer_on_period_time",
+    "text",
+    "2020-11-18T20:53:19.615931+00:00"
+   ],
+   [
+    "fan_48v_ok",
+    "text",
+    "off"
+   ],
+   [
+    "auto_refer_on_en_time",
+    "text",
+    "2020-11-18T20:53:19.615730+00:00"
+   ],
+   [
+    "bb_fp1_en_time",
+    "text",
+    "2020-11-18T23:18:09.297388+00:00"
+   ],
+   [
+    "fan_48v_en",
+    "text",
+    "off"
+   ],
+   [
+    "sw_limits",
+    "jsonb",
+    "{'ADCS:ADC4': [-1, 5000, 'Dry Air Flow'], 'ADCS:A..."
+   ],
+   [
+    "last_sw_limits_error",
+    "text",
+    ""
+   ],
+   [
+    "auto_refer_on_en",
+    "integer",
+    "0"
+   ],
+   [
+    "auto_refer_on_period",
+    "integer",
+    "300"
+   ],
+   [
+    "smoke_tripped_time",
+    "text",
+    "2020-11-19T04:10:52.505866+00:00"
+   ],
+   [
+    "bb_fp1_en",
+    "text",
+    "off"
+   ],
+   [
+    "smoke_tripped",
+    "text",
+    "off"
+   ],
+   [
+    "bb_fp2_en",
+    "text",
+    "off"
+   ],
+   [
+    "sw_limits_en",
+    "integer",
+    "0"
+   ],
+   [
+    "bb_fp2_en_time",
+    "text",
+    "2020-11-18T23:18:09.560441+00:00"
+   ],
+   [
+    "bb_spare_en",
+    "text",
+    "off"
+   ],
+   [
+    "fan_48v_en_time",
+    "text",
+    "2020-11-18T23:17:44.592386+00:00"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-19 04:10:52.512124+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-19 04:10:52.529265+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_VAISALA",
+  "tablename": "fxc_vaisala",
+  "ncols": 21,
+  "error": null,
+  "columns": [
+   [
+    "fxc_vaisala",
+    "integer",
+    "1"
+   ],
+   [
+    "v_fpd_dewpoint",
+    "double precision",
+    "-29.02"
+   ],
+   [
+    "v_se_ext_id",
+    "integer",
+    "43"
+   ],
+   [
+    "v_fpd_temperature",
+    "double precision",
+    "18.35"
+   ],
+   [
+    "v_fpd_time",
+    "text",
+    "2020-11-18T16:10:02.289466+00:00"
+   ],
+   [
+    "v_c3c4_humidity",
+    "double precision",
+    "0.06"
+   ],
+   [
+    "v_c3c4_id",
+    "integer",
+    "42"
+   ],
+   [
+    "v_c3c4_dewpoint",
+    "double precision",
+    "-59.03"
+   ],
+   [
+    "v_se_ext_dewpoint",
+    "double precision",
+    "-3.37"
+   ],
+   [
+    "v_fpd_id",
+    "integer",
+    "44"
+   ],
+   [
+    "v_c3c4_temperature",
+    "double precision",
+    "17.82"
+   ],
+   [
+    "v_se_ext_humidity",
+    "double precision",
+    "22.94"
+   ],
+   [
+    "v_fpd_humidity",
+    "double precision",
+    "1.99"
+   ],
+   [
+    "v_se_ext_temperature",
+    "double precision",
+    "17.59"
+   ],
+   [
+    "v_se_ext_time",
+    "text",
+    "2020-11-18T16:10:02.289466+00:00"
+   ],
+   [
+    "v_c3c4_time",
+    "text",
+    "2020-11-18T16:10:02.289466+00:00"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-18 16:10:03.184364+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-18 16:10:03.206329+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_THR",
+  "tablename": "fxc_thr",
+  "ncols": 23,
+  "error": null,
+  "columns": [
+   [
+    "fxc_thr",
+    "integer",
+    "1"
+   ],
+   [
+    "t_relay_set",
+    "integer",
+    "0"
+   ],
+   [
+    "t_humidity_lim_lo",
+    "integer",
+    "0"
+   ],
+   [
+    "t_alarm",
+    "integer",
+    "20"
+   ],
+   [
+    "t_id",
+    "text",
+    "7e_00100000254a"
+   ],
+   [
+    "t_timerb",
+    "integer",
+    "61122"
+   ],
+   [
+    "t_timera",
+    "integer",
+    "23179"
+   ],
+   [
+    "t_humidity",
+    "double precision",
+    "1.625"
+   ],
+   [
+    "t_temp_lim_lo",
+    "integer",
+    "0"
+   ],
+   [
+    "t_dewpoint_lim_hi",
+    "integer",
+    "15"
+   ],
+   [
+    "t_temp_lim_hi",
+    "integer",
+    "35"
+   ],
+   [
+    "t_relay_func",
+    "integer",
+    "0"
+   ],
+   [
+    "t_temperature",
+    "double precision",
+    "19.75"
+   ],
+   [
+    "t_time",
+    "text",
+    "2020-11-18T20:08:36.264642+00:00"
+   ],
+   [
+    "t_dewpoint",
+    "double precision",
+    "-32.75"
+   ],
+   [
+    "t_relay_state",
+    "integer",
+    "0"
+   ],
+   [
+    "t_dewpoint_lim_lo",
+    "integer",
+    "-128"
+   ],
+   [
+    "t_humidity_lim_hi",
+    "integer",
+    "85"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-18 20:08:37.148211+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-18 20:08:37.171890+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_INTERLOCKS",
+  "tablename": "fxc_interlocks",
+  "ncols": 13,
+  "error": null,
+  "columns": [
+   [
+    "fxc_interlocks",
+    "integer",
+    "2084"
+   ],
+   [
+    "interlock_fans",
+    "integer",
+    "0"
+   ],
+   [
+    "interlock_owthr",
+    "integer",
+    "0"
+   ],
+   [
+    "interlock_sw_limits",
+    "integer",
+    "0"
+   ],
+   [
+    "interlock_ok",
+    "integer",
+    "1"
+   ],
+   [
+    "interlock_smoke",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-18 20:57:17.311586+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-18 20:57:17.320540+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "last_interlock",
+    "text",
+    "None"
+   ],
+   [
+    "last_interlock_time",
+    "timestamp with time zone",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FXC_FANS",
+  "tablename": "fxc_fans",
+  "ncols": 50,
+  "error": null,
+  "columns": [
+   [
+    "fxc_fans",
+    "integer",
+    "1"
+   ],
+   [
+    "fan1_in_en_time",
+    "text",
+    "2020-11-19T07:26:32.687248+00:00"
+   ],
+   [
+    "fan2_ex_rpm",
+    "integer",
+    "None"
+   ],
+   [
+    "fan1_ex_rpm",
+    "integer",
+    "None"
+   ],
+   [
+    "fan2_ex_duty",
+    "integer",
+    "None"
+   ],
+   [
+    "fan2_in_en",
+    "integer",
+    "None"
+   ],
+   [
+    "fan_fault_flags",
+    "integer",
+    "None"
+   ],
+   [
+    "exfan_ex_duty",
+    "double precision",
+    "None"
+   ],
+   [
+    "exfan_ex_rpm_time",
+    "text",
+    "None"
+   ],
+   [
+    "exfan_in_en",
+    "integer",
+    "None"
+   ],
+   [
+    "fan_fm",
+    "jsonb",
+    "{'FAN_FM_MASK': 0, 'FAN_FM_FAULT': 0}"
+   ],
+   [
+    "exfan_ex_en",
+    "integer",
+    "None"
+   ],
+   [
+    "exfan_in_rpm_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan1_ex_duty",
+    "double precision",
+    "None"
+   ],
+   [
+    "fan1_in_rpm",
+    "integer",
+    "None"
+   ],
+   [
+    "exfan_ex_en_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan1_in_rpm_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan2_in_rpm_time",
+    "text",
+    "None"
+   ],
+   [
+    "exfan_in_duty_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan1_ex_rpm_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan2_ex_duty_time",
+    "text",
+    "None"
+   ],
+   [
+    "sw_fan_fault_mask",
+    "integer",
+    "None"
+   ],
+   [
+    "fan2_in_duty",
+    "double precision",
+    "None"
+   ],
+   [
+    "fan1_ex_duty_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan2_in_rpm",
+    "integer",
+    "None"
+   ],
+   [
+    "fan2_in_duty_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan_fault_flags_time",
+    "text",
+    "2020-11-19T07:26:32.275487+00:00"
+   ],
+   [
+    "exfan_in_en_time",
+    "text",
+    "None"
+   ],
+   [
+    "exfan_ex_duty_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan_fault_mask",
+    "integer",
+    "None"
+   ],
+   [
+    "fan2_ex_rpm_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan2_ex_en_time",
+    "text",
+    "None"
+   ],
+   [
+    "fan1_ex_en",
+    "integer",
+    "0"
+   ],
+   [
+    "fan2_in_en_time",
+    "text",
+    "None"
+   ],
+   [
+    "exfan_in_duty",
+    "integer",
+    "None"
+   ],
+   [
+    "sw_fan_fault_mask_time",
+    "text",
+    "2020-11-19T07:26:32.275873+00:00"
+   ],
+   [
+    "fan1_in_duty_time",
+    "text",
+    "None"
+   ],
+   [
+    "exfan_ex_rpm",
+    "integer",
+    "None"
+   ],
+   [
+    "fan1_in_en",
+    "integer",
+    "0"
+   ],
+   [
+    "fan_fault_mask_time",
+    "text",
+    "2020-11-19T07:26:32.275686+00:00"
+   ],
+   [
+    "fan_fm_time",
+    "text",
+    "2020-11-19T07:26:32.279325+00:00"
+   ],
+   [
+    "fan1_ex_en_time",
+    "text",
+    "2020-11-19T07:26:32.893585+00:00"
+   ],
+   [
+    "fan2_ex_en",
+    "integer",
+    "None"
+   ],
+   [
+    "fan1_in_duty",
+    "double precision",
+    "None"
+   ],
+   [
+    "exfan_in_rpm",
+    "integer",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-19 07:26:33.160953+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-19 07:26:33.282226+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "AOS_LATEST",
+  "tablename": "aos_latest",
+  "ncols": 39,
+  "error": null,
+  "columns": [
+   [
+    "aos_latest",
+    "integer",
+    "1"
+   ],
+   [
+    "aos_use",
+    "integer",
+    "0"
+   ],
+   [
+    "dodx",
+    "double precision",
+    "None"
+   ],
+   [
+    "dody",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodz",
+    "double precision",
+    "None"
+   ],
+   [
+    "doxt",
+    "double precision",
+    "None"
+   ],
+   [
+    "doyt",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodxerr",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodyerr",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodzerr",
+    "double precision",
+    "None"
+   ],
+   [
+    "doxterr",
+    "double precision",
+    "None"
+   ],
+   [
+    "doyterr",
+    "double precision",
+    "None"
+   ],
+   [
+    "expid",
+    "integer",
+    "None"
+   ],
+   [
+    "expframe",
+    "integer",
+    "None"
+   ],
+   [
+    "exptime",
+    "double precision",
+    "None"
+   ],
+   [
+    "nusedplus",
+    "integer",
+    "None"
+   ],
+   [
+    "nusedminus",
+    "integer",
+    "None"
+   ],
+   [
+    "nused",
+    "integer",
+    "None"
+   ],
+   [
+    "mountaz",
+    "double precision",
+    "None"
+   ],
+   [
+    "mountel",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposx",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposy",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposz",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposxtilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposytilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "trustemp",
+    "double precision",
+    "None"
+   ],
+   [
+    "pmirtemp",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-25 23:15:52.154215+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "donut"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-25 23:15:52.155553+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "dox",
+    "double precision",
+    "None"
+   ],
+   [
+    "doy",
+    "double precision",
+    "None"
+   ],
+   [
+    "doz",
+    "double precision",
+    "None"
+   ],
+   [
+    "doxtilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "doytilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "ft",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_updated",
+    "timestamp with time zone",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "AOS_AVERAGE",
+  "tablename": "aos_average",
+  "ncols": 41,
+  "error": null,
+  "columns": [
+   [
+    "aos_average",
+    "integer",
+    "1"
+   ],
+   [
+    "aos_use",
+    "integer",
+    "0"
+   ],
+   [
+    "nexp",
+    "integer",
+    "None"
+   ],
+   [
+    "dodx",
+    "double precision",
+    "None"
+   ],
+   [
+    "dody",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodz",
+    "double precision",
+    "None"
+   ],
+   [
+    "doxt",
+    "double precision",
+    "None"
+   ],
+   [
+    "doyt",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodxerr",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodyerr",
+    "double precision",
+    "None"
+   ],
+   [
+    "dodzerr",
+    "double precision",
+    "None"
+   ],
+   [
+    "doxterr",
+    "double precision",
+    "None"
+   ],
+   [
+    "doyterr",
+    "double precision",
+    "None"
+   ],
+   [
+    "expid",
+    "double precision",
+    "None"
+   ],
+   [
+    "expframe",
+    "double precision",
+    "None"
+   ],
+   [
+    "exptime",
+    "double precision",
+    "None"
+   ],
+   [
+    "nusedplus",
+    "double precision",
+    "None"
+   ],
+   [
+    "nusedminus",
+    "double precision",
+    "None"
+   ],
+   [
+    "nused",
+    "double precision",
+    "None"
+   ],
+   [
+    "mountaz",
+    "double precision",
+    "None"
+   ],
+   [
+    "mountel",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposx",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposy",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposz",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposxtilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "hexposytilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "trustemp",
+    "double precision",
+    "None"
+   ],
+   [
+    "pmirtemp",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-25 23:15:52.162840+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "donut"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-25 23:15:52.164012+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "doytilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "doxtilt",
+    "double precision",
+    "None"
+   ],
+   [
+    "dox",
+    "double precision",
+    "None"
+   ],
+   [
+    "doy",
+    "double precision",
+    "None"
+   ],
+   [
+    "doz",
+    "double precision",
+    "None"
+   ],
+   [
+    "ft",
+    "double precision",
+    "None"
+   ],
+   [
+    "last_updated",
+    "timestamp with time zone",
+    "None"
+   ],
+   [
+    "tel_lut",
+    "ARRAY",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ADC_CONTROLLERS",
+  "tablename": "adc_controllers",
+  "ncols": 19,
+  "error": null,
+  "columns": [
+   [
+    "adc_controllers",
+    "integer",
+    "1"
+   ],
+   [
+    "status1",
+    "text",
+    "STOPPED"
+   ],
+   [
+    "angle1",
+    "integer",
+    "360"
+   ],
+   [
+    "rem_time1",
+    "integer",
+    "0"
+   ],
+   [
+    "status2",
+    "text",
+    "STOPPED"
+   ],
+   [
+    "angle2",
+    "integer",
+    "0"
+   ],
+   [
+    "rem_time2",
+    "integer",
+    "0"
+   ],
+   [
+    "nrev1",
+    "integer",
+    "0"
+   ],
+   [
+    "nrev2",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-01-31 17:02:26.805223+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-01-31 17:02:26.805970+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ],
+   [
+    "home1",
+    "integer",
+    "None"
+   ],
+   [
+    "home2",
+    "integer",
+    "None"
+   ],
+   [
+    "drv_enbld1",
+    "integer",
+    "None"
+   ],
+   [
+    "drv_enbld2",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "HEXAPOD_POS",
+  "tablename": "hexapod_pos",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "hexapod_pos",
+    "integer",
+    "1"
+   ],
+   [
+    "pos",
+    "ARRAY",
+    "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-01-31 17:01:28.929537+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-01-31 17:01:28.930172+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "DONUT_SUMMARY",
+  "tablename": "donut_summary",
+  "ncols": 83,
+  "error": null,
+  "columns": [
+   [
+    "donut_summary",
+    "integer",
+    "1"
+   ],
+   [
+    "dodz",
+    "double precision",
+    "16.166856815772746"
+   ],
+   [
+    "dodzerr",
+    "double precision",
+    "4.564597140129798"
+   ],
+   [
+    "dodx",
+    "double precision",
+    "-410.26744550404203"
+   ],
+   [
+    "dody",
+    "double precision",
+    "-587.1660559839798"
+   ],
+   [
+    "doxt",
+    "double precision",
+    "-0.09857253848006042"
+   ],
+   [
+    "doyt",
+    "double precision",
+    "5.495299202651837"
+   ],
+   [
+    "dodxerr",
+    "double precision",
+    "42.7128592999797"
+   ],
+   [
+    "dodyerr",
+    "double precision",
+    "28.72640051766016"
+   ],
+   [
+    "doxterr",
+    "double precision",
+    "4.874279212314202"
+   ],
+   [
+    "doyterr",
+    "double precision",
+    "5.068238842381899"
+   ],
+   [
+    "z4delta",
+    "double precision",
+    "71.33314318422725"
+   ],
+   [
+    "z4thetax",
+    "double precision",
+    "-2740.4075249532593"
+   ],
+   [
+    "z4thetay",
+    "double precision",
+    "4324.450958533495"
+   ],
+   [
+    "z4deltaerr",
+    "double precision",
+    "4.564597140129798"
+   ],
+   [
+    "z4thetaxerr",
+    "double precision",
+    "885.0570360802466"
+   ],
+   [
+    "z4thetayerr",
+    "double precision",
+    "972.8228034198694"
+   ],
+   [
+    "z4meandeltabefore",
+    "double precision",
+    "67.27890197134974"
+   ],
+   [
+    "z4rmsdeltabefore",
+    "double precision",
+    "33.56111530995427"
+   ],
+   [
+    "z4meandeltaafter",
+    "double precision",
+    "0.3454311019673688"
+   ],
+   [
+    "z4rmsdeltaafter",
+    "double precision",
+    "10.174280490779795"
+   ],
+   [
+    "z5delta",
+    "double precision",
+    "0.09178933781296872"
+   ],
+   [
+    "z5thetax",
+    "double precision",
+    "-0.050147062438552624"
+   ],
+   [
+    "z5thetay",
+    "double precision",
+    "-0.07058677606241"
+   ],
+   [
+    "z5deltaerr",
+    "double precision",
+    "0.029236050593758285"
+   ],
+   [
+    "z5thetaxerr",
+    "double precision",
+    "0.027363736513823362"
+   ],
+   [
+    "z5thetayerr",
+    "double precision",
+    "0.03018752895361123"
+   ],
+   [
+    "z5meandeltabefore",
+    "double precision",
+    "0.12829104033046998"
+   ],
+   [
+    "z5rmsdeltabefore",
+    "double precision",
+    "0.12311342314754811"
+   ],
+   [
+    "z5meandeltaafter",
+    "double precision",
+    "0.003905413940829184"
+   ],
+   [
+    "z5rmsdeltaafter",
+    "double precision",
+    "0.10880409287204551"
+   ],
+   [
+    "z6delta",
+    "double precision",
+    "-0.0614045436903322"
+   ],
+   [
+    "z6thetax",
+    "double precision",
+    "0.04399959923859947"
+   ],
+   [
+    "z6thetay",
+    "double precision",
+    "0.07310343896052804"
+   ],
+   [
+    "z6deltaerr",
+    "double precision",
+    "0.01885739716474783"
+   ],
+   [
+    "z6thetaxerr",
+    "double precision",
+    "0.017464470789176404"
+   ],
+   [
+    "z6thetayerr",
+    "double precision",
+    "0.019438961839507857"
+   ],
+   [
+    "z6meandeltabefore",
+    "double precision",
+    "-0.08643978592128101"
+   ],
+   [
+    "z6rmsdeltabefore",
+    "double precision",
+    "0.08316492912084564"
+   ],
+   [
+    "z6meandeltaafter",
+    "double precision",
+    "-0.00012689909979586274"
+   ],
+   [
+    "z6rmsdeltaafter",
+    "double precision",
+    "0.054161602368606024"
+   ],
+   [
+    "z7delta",
+    "double precision",
+    "0.1148833490479847"
+   ],
+   [
+    "z7thetax",
+    "double precision",
+    "0.03823628822353545"
+   ],
+   [
+    "z7thetay",
+    "double precision",
+    "-0.008688181727948564"
+   ],
+   [
+    "z7deltaerr",
+    "double precision",
+    "0.004188504987901892"
+   ],
+   [
+    "z7thetaxerr",
+    "double precision",
+    "0.0037244708741824848"
+   ],
+   [
+    "z7thetayerr",
+    "double precision",
+    "0.004290849495148341"
+   ],
+   [
+    "z7meandeltabefore",
+    "double precision",
+    "0.11216806380915378"
+   ],
+   [
+    "z7rmsdeltabefore",
+    "double precision",
+    "0.055726286963696484"
+   ],
+   [
+    "z7meandeltaafter",
+    "double precision",
+    "0.003573472602384665"
+   ],
+   [
+    "z7rmsdeltaafter",
+    "double precision",
+    "0.022572920464287966"
+   ],
+   [
+    "z8delta",
+    "double precision",
+    "-0.08480305824919225"
+   ],
+   [
+    "z8thetax",
+    "double precision",
+    "-0.01617186018490977"
+   ],
+   [
+    "z8thetay",
+    "double precision",
+    "0.042029508255224196"
+   ],
+   [
+    "z8deltaerr",
+    "double precision",
+    "0.006934173109096238"
+   ],
+   [
+    "z8thetaxerr",
+    "double precision",
+    "0.006216242429224318"
+   ],
+   [
+    "z8thetayerr",
+    "double precision",
+    "0.007112331715599979"
+   ],
+   [
+    "z8meandeltabefore",
+    "double precision",
+    "-0.09140396207621718"
+   ],
+   [
+    "z8rmsdeltabefore",
+    "double precision",
+    "0.06372852789333712"
+   ],
+   [
+    "z8meandeltaafter",
+    "double precision",
+    "0.004375734693158583"
+   ],
+   [
+    "z8rmsdeltaafter",
+    "double precision",
+    "0.02472618948314297"
+   ],
+   [
+    "nusedplus",
+    "integer",
+    "10"
+   ],
+   [
+    "nusedminus",
+    "integer",
+    "14"
+   ],
+   [
+    "nused",
+    "integer",
+    "14"
+   ],
+   [
+    "hexpos",
+    "text",
+    "1140.0,-480.0,58.5,-3.0,25.0,0.0"
+   ],
+   [
+    "hexposx",
+    "double precision",
+    "1140.0"
+   ],
+   [
+    "hexposy",
+    "double precision",
+    "-480.0"
+   ],
+   [
+    "hexposz",
+    "double precision",
+    "58.5"
+   ],
+   [
+    "hexposxtilt",
+    "double precision",
+    "-3.0"
+   ],
+   [
+    "hexposytilt",
+    "double precision",
+    "25.0"
+   ],
+   [
+    "expid",
+    "integer",
+    "52755"
+   ],
+   [
+    "expframe",
+    "integer",
+    "2"
+   ],
+   [
+    "exptime",
+    "double precision",
+    "30.0"
+   ],
+   [
+    "ifile",
+    "text",
+    "donut-00052755-0002.fits"
+   ],
+   [
+    "mountaz",
+    "double precision",
+    "271.227216"
+   ],
+   [
+    "mountel",
+    "double precision",
+    "87.562751"
+   ],
+   [
+    "trustemp",
+    "double precision",
+    "9.767"
+   ],
+   [
+    "pmirtemp",
+    "double precision",
+    "7.662"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-25 23:17:45.070385+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "donut"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-25 23:17:45.080722+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "HEXAPOD_TRIM",
+  "tablename": "hexapod_trim",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "hexapod_trim",
+    "integer",
+    "1"
+   ],
+   [
+    "trim",
+    "ARRAY",
+    "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-01-31 17:01:26.829011+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-01-31 17:01:26.829758+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "HEXAPOD_HCUSTATUS",
+  "tablename": "hexapod_hcustatus",
+  "ncols": 7,
+  "error": null,
+  "columns": [
+   [
+    "hexapod_hcustatus",
+    "integer",
+    "1"
+   ],
+   [
+    "hcustatus",
+    "text",
+    "STA_CL"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-01-31 17:01:28.923922+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-01-31 17:01:28.924404+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GUIDE0_TELEMETRY",
+  "tablename": "guide0_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.guide0_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "GUIDE2_TELEMETRY",
+  "tablename": "guide2_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.guide2_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "GUIDE4_TELEMETRY",
+  "tablename": "guide4_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.guide4_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "GUIDE5_TELEMETRY",
+  "tablename": "guide5_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.guide5_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "GUIDE7_TELEMETRY",
+  "tablename": "guide7_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.guide7_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "GUIDE9_TELEMETRY",
+  "tablename": "guide9_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.guide9_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "FOCUS1_TELEMETRY",
+  "tablename": "focus1_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.focus1_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "FOCUS3_TELEMETRY",
+  "tablename": "focus3_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.focus3_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "FOCUS6_TELEMETRY",
+  "tablename": "focus6_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.focus6_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "FOCUS8_TELEMETRY",
+  "tablename": "focus8_telemetry",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.focus8_telemetry' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "ICS_TIMING",
+  "tablename": "ics_timing",
+  "ncols": 30,
+  "error": null,
+  "columns": [
+   [
+    "ics_timing",
+    "integer",
+    "1"
+   ],
+   [
+    "guiderman_inverval",
+    "double precision",
+    "None"
+   ],
+   [
+    "guiderman_cycle",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-11-27 17:59:29.801914+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20201127"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-11-27 17:59:29.803043+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "focusman_interval",
+    "double precision",
+    "None"
+   ],
+   [
+    "focusman_cycle",
+    "double precision",
+    "None"
+   ],
+   [
+    "skyman_cycle",
+    "double precision",
+    "None"
+   ],
+   [
+    "skyman_interval",
+    "double precision",
+    "None"
+   ],
+   [
+    "guiderib_assign",
+    "double precision",
+    "11.907"
+   ],
+   [
+    "guiderib_sent",
+    "double precision",
+    "None"
+   ],
+   [
+    "skyib_sent",
+    "double precision",
+    "None"
+   ],
+   [
+    "skyib_assign",
+    "double precision",
+    "None"
+   ],
+   [
+    "focusib_assign",
+    "double precision",
+    "None"
+   ],
+   [
+    "focusib_sent",
+    "double precision",
+    "None"
+   ],
+   [
+    "specib_sent",
+    "double precision",
+    "None"
+   ],
+   [
+    "specib_assign",
+    "double precision",
+    "None"
+   ],
+   [
+    "guider_assign",
+    "double precision",
+    "None"
+   ],
+   [
+    "guider_sent",
+    "double precision",
+    "None"
+   ],
+   [
+    "guiderman_throttle",
+    "double precision",
+    "None"
+   ],
+   [
+    "skyman_throttle",
+    "double precision",
+    "None"
+   ],
+   [
+    "focusman_throttle",
+    "double precision",
+    "None"
+   ],
+   [
+    "guiderman_interval",
+    "double precision",
+    "None"
+   ],
+   [
+    "guider_cycle",
+    "double precision",
+    "None"
+   ],
+   [
+    "focusib_cycle",
+    "double precision",
+    "None"
+   ],
+   [
+    "skyib_cycle",
+    "double precision",
+    "None"
+   ],
+   [
+    "guiderib_cycle",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GFA_BOOTTIME",
+  "tablename": "gfa_boottime",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "gfa_boottime",
+    "integer",
+    "1"
+   ],
+   [
+    "unit",
+    "integer",
+    "8"
+   ],
+   [
+    "boottime",
+    "double precision",
+    "39.428"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2020-12-01 16:15:57.085513+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20201201"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2020-12-01 16:15:57.085904+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "CRYOSTAT_TELEMETRY",
+  "tablename": "cryostat_telemetry",
+  "ncols": 64,
+  "error": null,
+  "columns": [
+   [
+    "cryostat_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "va_def_gen",
+    "integer",
+    "1"
+   ],
+   [
+    "va_red_in_cooldn",
+    "integer",
+    "0"
+   ],
+   [
+    "va_red_in_ionic",
+    "integer",
+    "0"
+   ],
+   [
+    "va_red_ready",
+    "integer",
+    "0"
+   ],
+   [
+    "va_red_in_stop",
+    "integer",
+    "0"
+   ],
+   [
+    "io_red_inter_fee",
+    "integer",
+    "0"
+   ],
+   [
+    "va_red_def",
+    "integer",
+    "1"
+   ],
+   [
+    "va_red_def_ip",
+    "integer",
+    "0"
+   ],
+   [
+    "va_red_def_xpcde",
+    "integer",
+    "0"
+   ],
+   [
+    "xp_red_rvs_k",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_red_rsp_k",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_red_rid",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_red_rvd",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_red_rva",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "io_red_pt",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "va_red_ip_mb",
+    "double precision",
+    "1.0288449779627395e-11"
+   ],
+   [
+    "io_red_tcp",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "io_red_tct",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "io_red_thh",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "va_blu_in_cooldn",
+    "integer",
+    "0"
+   ],
+   [
+    "va_blu_in_ionic",
+    "integer",
+    "0"
+   ],
+   [
+    "va_blu_ready",
+    "integer",
+    "0"
+   ],
+   [
+    "va_blu_in_stop",
+    "integer",
+    "0"
+   ],
+   [
+    "io_blu_inter_fee",
+    "integer",
+    "0"
+   ],
+   [
+    "va_blu_def",
+    "integer",
+    "0"
+   ],
+   [
+    "va_blu_def_ip",
+    "integer",
+    "0"
+   ],
+   [
+    "va_blu_def_xpcde",
+    "integer",
+    "1"
+   ],
+   [
+    "xp_blu_rvs_k",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_blu_rsp_k",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_blu_rid",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_blu_rvd",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_blu_rva",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "io_blu_pt",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "va_blu_ip_mb",
+    "double precision",
+    "1.0288449779627395e-11"
+   ],
+   [
+    "io_blu_tcp",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "io_blu_tct",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "io_blu_thh",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "va_nir_in_cooldn",
+    "integer",
+    "0"
+   ],
+   [
+    "va_nir_in_ionic",
+    "integer",
+    "0"
+   ],
+   [
+    "va_nir_ready",
+    "integer",
+    "0"
+   ],
+   [
+    "va_nir_in_stop",
+    "integer",
+    "0"
+   ],
+   [
+    "io_nir_inter_fee",
+    "integer",
+    "0"
+   ],
+   [
+    "va_nir_def",
+    "integer",
+    "0"
+   ],
+   [
+    "va_nir_def_ip",
+    "integer",
+    "0"
+   ],
+   [
+    "va_nir_def_xpcde",
+    "integer",
+    "1"
+   ],
+   [
+    "xp_nir_rvs_k",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_nir_rsp_k",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_nir_rid",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_nir_rvd",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "xp_nir_rva",
+    "double precision",
+    "999.989990234375"
+   ],
+   [
+    "io_nir_pt",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "va_nir_ip_mb",
+    "double precision",
+    "1.0288449779627395e-11"
+   ],
+   [
+    "io_nir_tcp",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "io_nir_tct",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "io_nir_thh",
+    "double precision",
+    "888.8800048828125"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-06 21:14:58.201011+00:00"
+   ],
+   [
+    "unit",
+    "integer",
+    "0"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-06 21:14:58.212879+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "sp",
+    "integer",
+    "None"
+   ],
+   [
+    "sm",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SPECTROGRAPHS_CCDS",
+  "tablename": "spectrographs_ccds",
+  "ncols": 18,
+  "error": null,
+  "columns": [
+   [
+    "spectrographs_ccds",
+    "integer",
+    "1"
+   ],
+   [
+    "clk_mask",
+    "integer",
+    "None"
+   ],
+   [
+    "dac_mask",
+    "integer",
+    "None"
+   ],
+   [
+    "power_on",
+    "integer",
+    "None"
+   ],
+   [
+    "ccd_idle",
+    "integer",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-13 16:52:42.334602+00:00"
+   ],
+   [
+    "ccd",
+    "double precision",
+    "None"
+   ],
+   [
+    "chassis",
+    "double precision",
+    "None"
+   ],
+   [
+    "cpu",
+    "double precision",
+    "None"
+   ],
+   [
+    "unit",
+    "integer",
+    "0"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-13 16:52:42.344657+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "camera",
+    "text",
+    "None"
+   ],
+   [
+    "vccd",
+    "integer",
+    "None"
+   ],
+   [
+    "fee_interlock",
+    "integer",
+    "None"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SPECTROGRAPHS_SENSORS",
+  "tablename": "spectrographs_sensors",
+  "ncols": 18,
+  "error": null,
+  "columns": [
+   [
+    "spectrographs_sensors",
+    "integer",
+    "1"
+   ],
+   [
+    "nir_camera_temp",
+    "double precision",
+    "25.033"
+   ],
+   [
+    "nir_camera_humidity",
+    "double precision",
+    "0.509"
+   ],
+   [
+    "red_camera_temp",
+    "double precision",
+    "25.502"
+   ],
+   [
+    "red_camera_humidity",
+    "double precision",
+    "0.675"
+   ],
+   [
+    "blue_camera_temp",
+    "double precision",
+    "25.234"
+   ],
+   [
+    "blue_camera_humidity",
+    "double precision",
+    "0.753"
+   ],
+   [
+    "bench_cryo_temp",
+    "double precision",
+    "25.2"
+   ],
+   [
+    "bench_nir_temp",
+    "double precision",
+    "25.15"
+   ],
+   [
+    "bench_coll_temp",
+    "double precision",
+    "24.922"
+   ],
+   [
+    "ieb_temp",
+    "double precision",
+    "24.997"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-13 16:52:43.886821+00:00"
+   ],
+   [
+    "unit",
+    "integer",
+    "0"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-13 16:52:45.069396+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SPECTROGRAPHS_MECHANISMS",
+  "tablename": "spectrographs_mechanisms",
+  "ncols": 21,
+  "error": null,
+  "columns": [
+   [
+    "spectrographs_mechanisms",
+    "integer",
+    "1"
+   ],
+   [
+    "status",
+    "text",
+    "READY"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-13 16:52:45.053851+00:00"
+   ],
+   [
+    "unit",
+    "integer",
+    "0"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-13 16:52:45.061748+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "hartmann_right",
+    "integer",
+    "None"
+   ],
+   [
+    "hartmann_right_power",
+    "integer",
+    "None"
+   ],
+   [
+    "hartmann_left_power",
+    "integer",
+    "None"
+   ],
+   [
+    "hartmann_left",
+    "integer",
+    "None"
+   ],
+   [
+    "exp_shutter",
+    "integer",
+    "None"
+   ],
+   [
+    "exp_shutter_power",
+    "integer",
+    "None"
+   ],
+   [
+    "exp_shutter_seal",
+    "integer",
+    "None"
+   ],
+   [
+    "nir_shutter_seal",
+    "integer",
+    "None"
+   ],
+   [
+    "nir_shutter_power",
+    "integer",
+    "None"
+   ],
+   [
+    "nir_shutter",
+    "integer",
+    "None"
+   ],
+   [
+    "wago",
+    "integer",
+    "None"
+   ],
+   [
+    "illuminator",
+    "integer",
+    "None"
+   ],
+   [
+    "simulated",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "CALIBRATION_TESTSLIT",
+  "tablename": "calibration_testslit",
+  "ncols": 16,
+  "error": null,
+  "columns": [
+   [
+    "calibration_testslit",
+    "integer",
+    "1"
+   ],
+   [
+    "temp",
+    "double precision",
+    "24.8"
+   ],
+   [
+    "humidity",
+    "double precision",
+    "38.0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-15 14:02:48.468087+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-15 14:02:48.468781+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "hgar",
+    "integer",
+    "None"
+   ],
+   [
+    "cd",
+    "integer",
+    "None"
+   ],
+   [
+    "ne",
+    "integer",
+    "None"
+   ],
+   [
+    "kr",
+    "integer",
+    "None"
+   ],
+   [
+    "xe",
+    "integer",
+    "None"
+   ],
+   [
+    "continuum1",
+    "integer",
+    "None"
+   ],
+   [
+    "continuum2",
+    "integer",
+    "None"
+   ],
+   [
+    "continuum3",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SHACK_SHACK",
+  "tablename": "shack_shack",
+  "ncols": 24,
+  "error": null,
+  "columns": [
+   [
+    "shack_shack",
+    "integer",
+    "1"
+   ],
+   [
+    "updated",
+    "text",
+    "2019-02-19T21:11:14.695007"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-19 21:11:14.781120+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-19 21:11:14.782591+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "sm1_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm2_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm3_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm4_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm5_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm6_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm7_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm8_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm9_power",
+    "integer",
+    "None"
+   ],
+   [
+    "sm10_power",
+    "integer",
+    "None"
+   ],
+   [
+    "wago",
+    "integer",
+    "None"
+   ],
+   [
+    "sai_ssr",
+    "integer",
+    "None"
+   ],
+   [
+    "sai_mr",
+    "integer",
+    "None"
+   ],
+   [
+    "sai_power",
+    "integer",
+    "None"
+   ],
+   [
+    "status",
+    "integer",
+    "None"
+   ],
+   [
+    "illuminator",
+    "integer",
+    "None"
+   ],
+   [
+    "wec",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SHACK_WEC",
+  "tablename": "shack_wec",
+  "ncols": 20,
+  "error": null,
+  "columns": [
+   [
+    "shack_wec",
+    "integer",
+    "1"
+   ],
+   [
+    "ahu_unit",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "a_simulation",
+    "text",
+    "TRUE"
+   ],
+   [
+    "room_pressure",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "space_temp1",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "reheat_temp",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "updated",
+    "text",
+    "2019-02-19T21:11:14.932671"
+   ],
+   [
+    "space_humidity",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-19 21:11:14.946315+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-19 21:11:14.948080+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "heater_output",
+    "double precision",
+    "None"
+   ],
+   [
+    "space_temp2",
+    "double precision",
+    "None"
+   ],
+   [
+    "space_temp4",
+    "double precision",
+    "None"
+   ],
+   [
+    "space_temp_avg",
+    "double precision",
+    "None"
+   ],
+   [
+    "space_temp3",
+    "double precision",
+    "None"
+   ],
+   [
+    "cooling_coil_temp",
+    "double precision",
+    "None"
+   ],
+   [
+    "chilled_water_output",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SHACK_WAGO",
+  "tablename": "shack_wago",
+  "ncols": 10,
+  "error": null,
+  "columns": [
+   [
+    "shack_wago",
+    "integer",
+    "1"
+   ],
+   [
+    "purge_pressure",
+    "double precision",
+    "9.3"
+   ],
+   [
+    "updated",
+    "text",
+    "2019-02-19T21:11:14.695022"
+   ],
+   [
+    "seal_pressure",
+    "double precision",
+    "19.77"
+   ],
+   [
+    "box_temp",
+    "double precision",
+    "16.6"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-02-19 21:11:14.980251+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-02-19 21:11:14.981201+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PERFORMANCE_MONITOR",
+  "tablename": "performance_monitor",
+  "ncols": 9,
+  "error": null,
+  "columns": [
+   [
+    "performance_monitor",
+    "integer",
+    "1"
+   ],
+   [
+    "status",
+    "integer",
+    "1"
+   ],
+   [
+    "obsday",
+    "text",
+    "20210410"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-04-11 14:43:19.196701+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210410"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-04-11 14:43:19.197127+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "last_updated",
+    "text",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GUIDER_CENTROIDS",
+  "tablename": "guider_centroids",
+  "ncols": 32,
+  "error": null,
+  "columns": [
+   [
+    "guider_centroids",
+    "integer",
+    "1"
+   ],
+   [
+    "combined_x",
+    "double precision",
+    "-0.5244742422018708"
+   ],
+   [
+    "combined_y",
+    "double precision",
+    "0.4336189022655247"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-29 21:43:23.342599+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "klaus"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-29 21:43:23.343136+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "seeing",
+    "double precision",
+    "None"
+   ],
+   [
+    "nstars",
+    "integer",
+    "None"
+   ],
+   [
+    "guide0_0",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide0_1",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide2_0",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide2_1",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide3_0",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide3_1",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide5_0",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide5_1",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide7_0",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide7_1",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide8_0",
+    "jsonb",
+    "None"
+   ],
+   [
+    "guide8_1",
+    "jsonb",
+    "None"
+   ],
+   [
+    "pixel_scale",
+    "double precision",
+    "None"
+   ],
+   [
+    "tcs_correction_ra",
+    "double precision",
+    "None"
+   ],
+   [
+    "tcs_correction_dec",
+    "double precision",
+    "None"
+   ],
+   [
+    "guiding",
+    "integer",
+    "None"
+   ],
+   [
+    "send_guide_corrections",
+    "integer",
+    "None"
+   ],
+   [
+    "expid",
+    "integer",
+    "None"
+   ],
+   [
+    "rotation",
+    "double precision",
+    "None"
+   ],
+   [
+    "frame",
+    "integer",
+    "None"
+   ],
+   [
+    "ngfas",
+    "integer",
+    "None"
+   ],
+   [
+    "obstime",
+    "timestamp with time zone",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "CIFIDS_TEMPERATURES",
+  "tablename": "cifids_temperatures",
+  "ncols": 11,
+  "error": null,
+  "columns": [
+   [
+    "cifids_temperatures",
+    "integer",
+    "1"
+   ],
+   [
+    "t1",
+    "double precision",
+    "16.062"
+   ],
+   [
+    "t2",
+    "double precision",
+    "16.125"
+   ],
+   [
+    "t3",
+    "double precision",
+    "17.625"
+   ],
+   [
+    "t4",
+    "double precision",
+    "16.625"
+   ],
+   [
+    "t5",
+    "double precision",
+    "21.75"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-03-31 22:45:45.258478+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "ci_20190331"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-03-31 22:45:45.259125+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GFA_MEMORY",
+  "tablename": "gfa_memory",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.gfa_memory' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "IB_MEMORY",
+  "tablename": "ib_memory",
+  "ncols": 0,
+  "error": "no columns found -- table 'telemetry.ib_memory' does not exist?",
+  "columns": []
+ },
+ {
+  "shared_variable": "ICS_MEMORY",
+  "tablename": "ics_memory",
+  "ncols": 10,
+  "error": null,
+  "columns": [
+   [
+    "ics_memory",
+    "integer",
+    "1"
+   ],
+   [
+    "role",
+    "text",
+    "GUIDE0"
+   ],
+   [
+    "memory",
+    "double precision",
+    "111.56640625"
+   ],
+   [
+    "cpu",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-05-18 18:42:20.318066+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20210517"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-05-18 18:42:20.318467+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "free",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "CONTMONFP_TELEMETRY",
+  "tablename": "contmonfp_telemetry",
+  "ncols": 9,
+  "error": null,
+  "columns": [
+   [
+    "contmonfp_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "reflectivity_voltage",
+    "double precision",
+    "-0.42726173996925354"
+   ],
+   [
+    "scatter_voltage",
+    "double precision",
+    "-0.504182755947113"
+   ],
+   [
+    "temp_control_ok",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-06-10 16:14:32.310500+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "ann"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-06-10 16:14:32.311139+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FIBER_ANALYSIS",
+  "tablename": "fiber_analysis",
+  "ncols": 43,
+  "error": null,
+  "columns": [
+   [
+    "date",
+    "date",
+    "2021-06-03"
+   ],
+   [
+    "pos_id",
+    "text",
+    "M02691"
+   ],
+   [
+    "petal_id",
+    "integer",
+    "4"
+   ],
+   [
+    "location",
+    "integer",
+    "486"
+   ],
+   [
+    "hardstop",
+    "boolean",
+    "False"
+   ],
+   [
+    "bad_scale",
+    "boolean",
+    "False"
+   ],
+   [
+    "lodged",
+    "boolean",
+    "False"
+   ],
+   [
+    "disabled_moving",
+    "boolean",
+    "False"
+   ],
+   [
+    "autodisabled",
+    "boolean",
+    "False"
+   ],
+   [
+    "concern",
+    "boolean",
+    "False"
+   ],
+   [
+    "frozen",
+    "boolean",
+    "False"
+   ],
+   [
+    "others",
+    "text",
+    ""
+   ],
+   [
+    "nautodis",
+    "integer",
+    "0"
+   ],
+   [
+    "nlodged",
+    "integer",
+    "0"
+   ],
+   [
+    "ndebounced",
+    "integer",
+    "0"
+   ],
+   [
+    "ndebounced_fail",
+    "integer",
+    "0"
+   ],
+   [
+    "ninterfere",
+    "integer",
+    "0"
+   ],
+   [
+    "nfrozen",
+    "integer",
+    "0"
+   ],
+   [
+    "nfrozen_unflag",
+    "integer",
+    "0"
+   ],
+   [
+    "nlines",
+    "integer",
+    "93"
+   ],
+   [
+    "nenabled",
+    "integer",
+    "93"
+   ],
+   [
+    "nmoves",
+    "integer",
+    "28"
+   ],
+   [
+    "nmoved",
+    "integer",
+    "37"
+   ],
+   [
+    "nbigmoves",
+    "integer",
+    "23"
+   ],
+   [
+    "nbigmoves_ok",
+    "integer",
+    "17"
+   ],
+   [
+    "nbigmoves_up",
+    "integer",
+    "6"
+   ],
+   [
+    "nbad_t",
+    "integer",
+    "0"
+   ],
+   [
+    "nbad_p",
+    "integer",
+    "0"
+   ],
+   [
+    "hard_t",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "scale_t_mean",
+    "double precision",
+    "0.9873311519622803"
+   ],
+   [
+    "scale_t_err",
+    "double precision",
+    "0.001998696243390441"
+   ],
+   [
+    "scale_t_rms",
+    "double precision",
+    "0.0052880533039569855"
+   ],
+   [
+    "scale_t_max",
+    "double precision",
+    "0.020191574469208717"
+   ],
+   [
+    "hard_p",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "scale_p_mean",
+    "double precision",
+    "1.0100330114364624"
+   ],
+   [
+    "scale_p_err",
+    "double precision",
+    "0.006959248799830675"
+   ],
+   [
+    "scale_p_rms",
+    "double precision",
+    "0.01841244101524353"
+   ],
+   [
+    "scale_p_max",
+    "double precision",
+    "0.03366166725754738"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "None"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-07-08 01:02:52.670934+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GUIDER_SUMMARY",
+  "tablename": "guider_summary",
+  "ncols": 17,
+  "error": null,
+  "columns": [
+   [
+    "guider_summary",
+    "integer",
+    "1"
+   ],
+   [
+    "duration",
+    "double precision",
+    "82.79"
+   ],
+   [
+    "expid",
+    "integer",
+    "7424"
+   ],
+   [
+    "seeing",
+    "double precision",
+    "None"
+   ],
+   [
+    "frames",
+    "integer",
+    "4"
+   ],
+   [
+    "meanx",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "meany",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "meanx2",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "meany2",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "meanxy",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "maxx",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "maxy",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2019-04-18 02:43:47.150035+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "ci_20190417"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2019-04-18 02:43:47.150767+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_ELNINO",
+  "tablename": "environmentmonitor_elnino",
+  "ncols": 14,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_elnino",
+    "integer",
+    "1"
+   ],
+   [
+    "elnino_timestamp",
+    "text",
+    "2021-11-24 11:02:05"
+   ],
+   [
+    "zp_adu_per_s_desi",
+    "double precision",
+    "13.640887816050183"
+   ],
+   [
+    "sky_adu_per_s_desi",
+    "double precision",
+    "214.03095703125"
+   ],
+   [
+    "zp_adu_per_s",
+    "double precision",
+    "14.19357525534133"
+   ],
+   [
+    "sky_adu_per_s",
+    "double precision",
+    "213.381103515625"
+   ],
+   [
+    "flag",
+    "integer",
+    "0"
+   ],
+   [
+    "mjd_obs",
+    "double precision",
+    "59542.460211"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-11-24 19:42:33.829888+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-11-24 19:42:33.838167+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PETALMAN_TIMES",
+  "tablename": "petalman_times",
+  "ncols": 14,
+  "error": null,
+  "columns": [
+   [
+    "petalman_times",
+    "integer",
+    "1"
+   ],
+   [
+    "handlefvcfeedback_after_blind",
+    "double precision",
+    "None"
+   ],
+   [
+    "prepareformove_blind",
+    "double precision",
+    "None"
+   ],
+   [
+    "executemove_blind",
+    "double precision",
+    "None"
+   ],
+   [
+    "handlefvcfeedback_after_corr",
+    "double precision",
+    "None"
+   ],
+   [
+    "prepareformove_corr",
+    "double precision",
+    "None"
+   ],
+   [
+    "executemove_corr",
+    "double precision",
+    "28.2491"
+   ],
+   [
+    "expid",
+    "integer",
+    "115150"
+   ],
+   [
+    "iteration",
+    "integer",
+    "1"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2021-12-23 01:24:41.720067+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20211222"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2021-12-23 01:24:41.723283+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "OCS_SLEW",
+  "tablename": "ocs_slew",
+  "ncols": 9,
+  "error": null,
+  "columns": [
+   [
+    "ocs_slew",
+    "integer",
+    "1"
+   ],
+   [
+    "slewtime",
+    "double precision",
+    "0.536"
+   ],
+   [
+    "slewangl",
+    "double precision",
+    "None"
+   ],
+   [
+    "moonsep",
+    "double precision",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2022-01-04 01:15:08.079777+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20220103"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2022-01-04 01:15:08.080359+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "OCS_INTEXPTIME",
+  "tablename": "ocs_intexptime",
+  "ncols": 7,
+  "error": null,
+  "columns": [
+   [
+    "ocs_intexptime",
+    "integer",
+    "1"
+   ],
+   [
+    "intexptime",
+    "double precision",
+    "157.666"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2022-01-04 01:38:45.658723+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20220103"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2022-01-04 01:38:45.659432+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GFA_PTL-SENSORS",
+  "tablename": "gfa_ptl_sensors",
+  "ncols": 32,
+  "error": null,
+  "columns": [
+   [
+    "gfa_ptl_sensors",
+    "integer",
+    "1"
+   ],
+   [
+    "gfa_fan_in_pwm",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "gfa_fan_out_pwm",
+    "double precision",
+    "0.0"
+   ],
+   [
+    "gfa_fan_in_tach",
+    "integer",
+    "0"
+   ],
+   [
+    "gfa_fan_out_tach",
+    "integer",
+    "0"
+   ],
+   [
+    "gfatime",
+    "text",
+    "2022-06-14T15:13:17.505775"
+   ],
+   [
+    "pbox_temp_sensor",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_1",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_2",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_3",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_13",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_7",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_11",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_6",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_12",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_8",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_4",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_10",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_9",
+    "double precision",
+    "None"
+   ],
+   [
+    "fpp_temp_sensor_5",
+    "double precision",
+    "None"
+   ],
+   [
+    "gxb_temp_sensor",
+    "double precision",
+    "None"
+   ],
+   [
+    "temptime",
+    "text",
+    "2022-06-14T15:13:14.456632"
+   ],
+   [
+    "gxbcur",
+    "double precision",
+    "None"
+   ],
+   [
+    "gxbtime",
+    "text",
+    "None"
+   ],
+   [
+    "pcid",
+    "integer",
+    "0"
+   ],
+   [
+    "time",
+    "text",
+    "2022-06-14T15:13:17.506749"
+   ],
+   [
+    "simulated",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2022-06-14 15:13:17.534774+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2022-06-14 15:13:17.549899+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GFA_PTL-STATUS",
+  "tablename": "gfa_ptl_status",
+  "ncols": 19,
+  "error": null,
+  "columns": [
+   [
+    "gfa_ptl_status",
+    "integer",
+    "1"
+   ],
+   [
+    "gfa_ovrtmp",
+    "integer",
+    "0"
+   ],
+   [
+    "gfa_fan_in_en",
+    "integer",
+    "0"
+   ],
+   [
+    "gfa_fan_out_en",
+    "integer",
+    "0"
+   ],
+   [
+    "pcid",
+    "integer",
+    "0"
+   ],
+   [
+    "time",
+    "text",
+    "2022-06-14T15:13:17.509106"
+   ],
+   [
+    "gfapwr_en",
+    "text",
+    "0"
+   ],
+   [
+    "tec_ctrl",
+    "text",
+    "0"
+   ],
+   [
+    "fxc_okay",
+    "text",
+    "1"
+   ],
+   [
+    "ccdbiasenabled",
+    "integer",
+    "0"
+   ],
+   [
+    "ccdbias",
+    "integer",
+    "0"
+   ],
+   [
+    "telemetryfault",
+    "integer",
+    "0"
+   ],
+   [
+    "status",
+    "jsonb",
+    "{}"
+   ],
+   [
+    "simulated",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2022-06-14 15:13:17.581603+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2022-06-14 15:13:17.591096+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "GFA_PTL-POWERUP",
+  "tablename": "gfa_ptl_powerup",
+  "ncols": 12,
+  "error": null,
+  "columns": [
+   [
+    "gfa_ptl_powerup",
+    "integer",
+    "1"
+   ],
+   [
+    "time",
+    "text",
+    "2022-06-14T15:13:08.434214"
+   ],
+   [
+    "pcid",
+    "integer",
+    "0"
+   ],
+   [
+    "thresholds",
+    "jsonb",
+    "{'CURR_GXB_WARN': 100, 'TACH_FAN_WARN': 2000, 'TE..."
+   ],
+   [
+    "status",
+    "jsonb",
+    "{}"
+   ],
+   [
+    "network_status",
+    "jsonb",
+    "{'is_up': True, 'is_alive': True, 'was_lost': Fal..."
+   ],
+   [
+    "simulated",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2022-06-14 15:13:08.484375+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2022-06-14 15:13:08.493435+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "OCS_ASTROMETRY",
+  "tablename": "ocs_astrometry",
+  "ncols": 18,
+  "error": null,
+  "columns": [
+   [
+    "ocs_astrometry",
+    "integer",
+    "1"
+   ],
+   [
+    "astrometry",
+    "text",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2022-10-26 15:09:28.368624+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20221025"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2022-10-26 15:09:28.369512+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "matched_stars",
+    "integer",
+    "None"
+   ],
+   [
+    "gfas_in_solution",
+    "integer",
+    "None"
+   ],
+   [
+    "astro_rmsx",
+    "double precision",
+    "None"
+   ],
+   [
+    "astro_rmsy",
+    "double precision",
+    "None"
+   ],
+   [
+    "astro_fwhm",
+    "double precision",
+    "None"
+   ],
+   [
+    "astro_magoff",
+    "double precision",
+    "None"
+   ],
+   [
+    "astro_status",
+    "integer",
+    "None"
+   ],
+   [
+    "expid",
+    "integer",
+    "None"
+   ],
+   [
+    "found_stars",
+    "integer",
+    "None"
+   ],
+   [
+    "offsetx",
+    "double precision",
+    "None"
+   ],
+   [
+    "offsety",
+    "double precision",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SPOTTRACK_CAMERASTATUS",
+  "tablename": "spottrack_camerastatus",
+  "ncols": 27,
+  "error": null,
+  "columns": [
+   [
+    "spottrack_camerastatus",
+    "integer",
+    "1"
+   ],
+   [
+    "open",
+    "integer",
+    "1"
+   ],
+   [
+    "reset",
+    "integer",
+    "1"
+   ],
+   [
+    "expose",
+    "integer",
+    "0"
+   ],
+   [
+    "idle",
+    "integer",
+    "1"
+   ],
+   [
+    "process",
+    "integer",
+    "0"
+   ],
+   [
+    "error",
+    "integer",
+    "0"
+   ],
+   [
+    "last_updated",
+    "text",
+    "2023-02-14T23:28:55.678930"
+   ],
+   [
+    "camera_tmp",
+    "double precision",
+    "23.0"
+   ],
+   [
+    "sensor_tmp",
+    "double precision",
+    "-9.9"
+   ],
+   [
+    "pwrsuppy_tmp",
+    "double precision",
+    "13.0"
+   ],
+   [
+    "receive_cnt",
+    "integer",
+    "0"
+   ],
+   [
+    "rec_state",
+    "text",
+    "STOP"
+   ],
+   [
+    "image_rate",
+    "double precision",
+    "0.2"
+   ],
+   [
+    "miss_count",
+    "integer",
+    "0"
+   ],
+   [
+    "spot_count",
+    "integer",
+    "0"
+   ],
+   [
+    "cluster_count",
+    "integer",
+    "0"
+   ],
+   [
+    "track_count",
+    "integer",
+    "0"
+   ],
+   [
+    "act_exptime",
+    "integer",
+    "0"
+   ],
+   [
+    "expid",
+    "integer",
+    "0"
+   ],
+   [
+    "expframe",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2023-02-14 23:28:55.684679+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2023-02-14 23:28:55.686158+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "execution_status",
+    "text",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "FRONTILLUMINATOR_FIOUTLETS",
+  "tablename": "frontilluminator_fioutlets",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "frontilluminator_fioutlets",
+    "integer",
+    "1"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2023-08-03 03:05:12.725474+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2023-08-03 03:05:12.733007+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "petal5",
+    "integer",
+    "None"
+   ],
+   [
+    "petal0",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "LUX_TELEMETRY",
+  "tablename": "lux_telemetry",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "lux_telemetry",
+    "integer",
+    "1"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2023-12-27 20:40:59+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2023-12-27 20:40:59.821066+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "shack",
+    "jsonb",
+    "None"
+   ],
+   [
+    "dome",
+    "jsonb",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "NFS_REQUESTTIME",
+  "tablename": "nfs_requesttime",
+  "ncols": 9,
+  "error": null,
+  "columns": [
+   [
+    "nfs_requesttime",
+    "integer",
+    "1"
+   ],
+   [
+    "requesttime",
+    "double precision",
+    "0.038"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2024-02-26 00:52:36.267245+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20240225"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2024-02-26 00:52:36.270451+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "tile",
+    "integer",
+    "None"
+   ],
+   [
+    "program",
+    "text",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SPECTROGRAPHS_CPULOAD",
+  "tablename": "spectrographs_cpuload",
+  "ncols": 12,
+  "error": null,
+  "columns": [
+   [
+    "spectrographs_cpuload",
+    "integer",
+    "1"
+   ],
+   [
+    "unit",
+    "text",
+    "CCDS5R"
+   ],
+   [
+    "cpu",
+    "double precision",
+    "48.2"
+   ],
+   [
+    "virtmem",
+    "double precision",
+    "7.8"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2024-04-03 14:29:08.440632+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2024-04-03 14:29:08.458449+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "sp",
+    "integer",
+    "None"
+   ],
+   [
+    "sm",
+    "integer",
+    "None"
+   ],
+   [
+    "ccd",
+    "text",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "OCS_NFSCONSTRAINTS",
+  "tablename": "ocs_nfsconstraints",
+  "ncols": 10,
+  "error": null,
+  "columns": [
+   [
+    "ocs_nfsconstraints",
+    "integer",
+    "1"
+   ],
+   [
+    "elrange",
+    "ARRAY",
+    "None"
+   ],
+   [
+    "azrange",
+    "ARRAY",
+    "None"
+   ],
+   [
+    "static_fa_only",
+    "integer",
+    "None"
+   ],
+   [
+    "expid",
+    "integer",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2024-12-16 20:03:45.358968+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20241215"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2024-12-16 20:03:45.359719+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "SPECTROGRAPHS_ACTUATORS",
+  "tablename": "spectrographs_actuators",
+  "ncols": 33,
+  "error": null,
+  "columns": [
+   [
+    "spectrographs_actuators",
+    "integer",
+    "1"
+   ],
+   [
+    "focus_serial",
+    "integer",
+    "26250023"
+   ],
+   [
+    "wavetilt_serial",
+    "integer",
+    "26250070"
+   ],
+   [
+    "fibertilt_serial",
+    "integer",
+    "26250080"
+   ],
+   [
+    "focus_initialized",
+    "integer",
+    "0"
+   ],
+   [
+    "wavetilt_initialized",
+    "integer",
+    "0"
+   ],
+   [
+    "fibertilt_initialized",
+    "integer",
+    "0"
+   ],
+   [
+    "focus_homed",
+    "integer",
+    "0"
+   ],
+   [
+    "wavetilt_homed",
+    "integer",
+    "0"
+   ],
+   [
+    "fibertilt_homed",
+    "integer",
+    "0"
+   ],
+   [
+    "default_focus_posmm",
+    "double precision",
+    "9.295"
+   ],
+   [
+    "default_wavetilt_posmm",
+    "double precision",
+    "6.807"
+   ],
+   [
+    "default_fibertilt_posmm",
+    "double precision",
+    "10.891"
+   ],
+   [
+    "focus_posmm",
+    "double precision",
+    "9.295"
+   ],
+   [
+    "wavetilt_posmm",
+    "double precision",
+    "6.807"
+   ],
+   [
+    "fibertilt_posmm",
+    "double precision",
+    "10.891"
+   ],
+   [
+    "message",
+    "text",
+    "None"
+   ],
+   [
+    "updated",
+    "text",
+    "2025-01-14T15:19:30.084423"
+   ],
+   [
+    "simulated",
+    "integer",
+    "0"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2025-01-14 15:19:30.089002+00:00"
+   ],
+   [
+    "unit",
+    "integer",
+    "7"
+   ],
+   [
+    "specid",
+    "integer",
+    "8"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2025-01-14 15:19:30.128435+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "status",
+    "integer",
+    "None"
+   ],
+   [
+    "usb",
+    "integer",
+    "None"
+   ],
+   [
+    "motors",
+    "integer",
+    "None"
+   ],
+   [
+    "collimator_power",
+    "integer",
+    "None"
+   ],
+   [
+    "focus_usb",
+    "text",
+    "None"
+   ],
+   [
+    "wavetilt_usb",
+    "text",
+    "None"
+   ],
+   [
+    "fibertilt_usb",
+    "text",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "CALIBRATION_CALPDUSWITCH",
+  "tablename": "calibration_calpduswitch",
+  "ncols": 8,
+  "error": null,
+  "columns": [
+   [
+    "calibration_calpduswitch",
+    "integer",
+    "1"
+   ],
+   [
+    "calpduswitch",
+    "text",
+    "None"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2025-08-12 18:29:04.113326+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20250811"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2025-08-12 18:29:04.114414+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "state",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "CALIBRATION_BOOTED",
+  "tablename": "calibration_booted",
+  "ncols": 7,
+  "error": null,
+  "columns": [
+   [
+    "calibration_booted",
+    "integer",
+    "1"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2025-08-15 19:21:47.331157+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "desi_20250814"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2025-08-15 19:21:47.331735+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "state",
+    "integer",
+    "None"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "PC_PTLTCAN",
+  "tablename": "pc_ptltcan",
+  "ncols": 11,
+  "error": null,
+  "columns": [
+   [
+    "pc_ptltcan",
+    "integer",
+    "1"
+   ],
+   [
+    "pctime",
+    "timestamp with time zone",
+    "2025-09-10 02:15:51.533155+00:00"
+   ],
+   [
+    "pcid",
+    "integer",
+    "7"
+   ],
+   [
+    "simulated",
+    "integer",
+    "0"
+   ],
+   [
+    "rec",
+    "jsonb",
+    "{'can30': -1, 'can31': -1, 'can32': -1, 'can33': ..."
+   ],
+   [
+    "tec",
+    "jsonb",
+    "{'can30': -1, 'can31': -1, 'can32': -1, 'can33': ..."
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2025-09-10 02:15:51.591428+00:00"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2025-09-10 02:15:51.604396+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ]
+  ]
+ },
+ {
+  "shared_variable": "ENVIRONMENTMONITOR_DUST",
+  "tablename": "environmentmonitor_dust",
+  "ncols": 31,
+  "error": null,
+  "columns": [
+   [
+    "environmentmonitor_dust",
+    "integer",
+    "1"
+   ],
+   [
+    "mayall_particle_1_timestamp",
+    "text",
+    "2025-10-21 15:55:26"
+   ],
+   [
+    "mayall_particle_1_micron_pt3",
+    "integer",
+    "806"
+   ],
+   [
+    "mayall_particle_1_micron_pt5",
+    "integer",
+    "123"
+   ],
+   [
+    "mayall_particle_1_micron_5",
+    "integer",
+    "2"
+   ],
+   [
+    "mayall_particle_1_micron_10",
+    "integer",
+    "0"
+   ],
+   [
+    "mayall_particle_1_background_light",
+    "integer",
+    "542"
+   ],
+   [
+    "wiyn_particle_1_timestamp",
+    "text",
+    "2025-10-21 15:55:36"
+   ],
+   [
+    "wiyn_particle_1_micron_pt3",
+    "integer",
+    "995"
+   ],
+   [
+    "wiyn_particle_1_micron_pt5",
+    "integer",
+    "261"
+   ],
+   [
+    "wiyn_particle_1_micron_5",
+    "integer",
+    "28"
+   ],
+   [
+    "wiyn_particle_1_micron_10",
+    "integer",
+    "7"
+   ],
+   [
+    "wiyn_particle_1_background_light",
+    "integer",
+    "1596"
+   ],
+   [
+    "wiyn_particle_2_timestamp",
+    "text",
+    "2025-10-21 15:55:24"
+   ],
+   [
+    "wiyn_particle_2_micron_pt3",
+    "integer",
+    "5112"
+   ],
+   [
+    "wiyn_particle_2_micron_pt5",
+    "integer",
+    "994"
+   ],
+   [
+    "wiyn_particle_2_micron_5",
+    "integer",
+    "0"
+   ],
+   [
+    "wiyn_particle_2_micron_10",
+    "integer",
+    "0"
+   ],
+   [
+    "wiyn_particle_2_background_light",
+    "integer",
+    "1596"
+   ],
+   [
+    "time_recorded",
+    "timestamp with time zone",
+    "2025-10-21 15:55:51.042358+00:00"
+   ],
+   [
+    "between_twilight",
+    "integer",
+    "None"
+   ],
+   [
+    "dos_instance",
+    "text",
+    "extern"
+   ],
+   [
+    "row_status",
+    "text",
+    "M"
+   ],
+   [
+    "row_status_time",
+    "timestamp with time zone",
+    "2025-10-21 15:55:51.057126+00:00"
+   ],
+   [
+    "row_status_user",
+    "text",
+    "desi_writer"
+   ],
+   [
+    "mayall_particle_2_timestamp",
+    "text",
+    "None"
+   ],
+   [
+    "mayall_particle_2_micron_pt3",
+    "integer",
+    "None"
+   ],
+   [
+    "mayall_particle_2_micron_pt5",
+    "integer",
+    "None"
+   ],
+   [
+    "mayall_particle_2_micron_5",
+    "integer",
+    "None"
+   ],
+   [
+    "mayall_particle_2_micron_10",
+    "integer",
+    "None"
+   ],
+   [
+    "mayall_particle_2_background_light",
+    "integer",
+    "None"
+   ]
+  ]
+ }
+]
