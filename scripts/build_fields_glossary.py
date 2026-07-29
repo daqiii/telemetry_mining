@@ -40,7 +40,9 @@ def section(title, anchor_note=""):
 def table(rows, headers=("Field", "Type", "Description", "Example value", "Source")):
     OUT.append("| " + " | ".join(headers) + " |")
     OUT.append("|" + "---|" * len(headers))
-    for row in rows:
+    # sort rows alphabetically (case-insensitive) by field name -- a glossary is
+    # for looking things up, so alphabetical beats DB/file definition order
+    for row in sorted(rows, key=lambda r: str(r[0]).lower()):
         cells = [str(c).replace("\n", " ").replace("|", "\\|") if c is not None else "" for c in row]
         OUT.append("| " + " | ".join(cells) + " |")
     OUT.append("")

@@ -99,7 +99,8 @@ for r in ok:
         out.append("")
     out.append("| Field | Type | Example |")
     out.append("|---|---|---|")
-    for name, dtype, example in r["columns"]:
+    # alphabetical (case-insensitive) by column name -- easier to find a field
+    for name, dtype, example in sorted(r["columns"], key=lambda c: str(c[0]).lower()):
         out.append(f"| {esc(name)} | {esc(dtype)} | {example_cell(example)} |")
     out.append("")
 

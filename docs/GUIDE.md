@@ -208,22 +208,34 @@ dotted path into an `Exposure` accessor, or a callable:
 table = select_exposures(
     "night between %s and %s and program = %s",
     columns={
-        # offline GFA pipeline seeing
-        "seeing_gfa": "gfa_row.FWHM_ASEC",
-        # a FITS header key
-        "etc_fracb": "header.ETCFRACB",
-        # registered TelemetryFields (nearest-in-time values)
-        "mirror_temp": "telemetry.mirror_avg_temp",
-        "air_temp": "telemetry.air_temp",
-        # a callable spec: arbitrary Python per exposure
+        # free -- straight from the bulk exposure.exposure query:
+        "airmass": "db_row.airmass",  # a flat column
+        "air_temp": "db_row.telescope['air_temp']",  # jsonb value
+        # one lookup per exposure:
+        "seeing_gfa": "gfa_row.FWHM_ASEC",  # offline GFA summary
+        "etc_fracb": "header.ETCFRACB",  # a FITS header key
+        # a callable spec -- arbitrary Python per exposure:
         "hex_focus": lambda e: float(e.header["HEXPOS"].split(",")[2])
     },
     params=(20260101, 20260701, "dark"),
+    # config omitted -> Config.default()
 )
-table["temp_diff"] = table["mirror_temp"] - table["air_temp"]
-# then plot with matplotlib/etc. -- the package returns plain pandas
-# and does no plotting of its own
+# EXPID/NIGHT are always included; combine columns in pandas as usual.
+# The package returns plain pandas and does no plotting itself.
 ```
+
+**Spec quick-reference:**
+
+- **`db_row.<col>` is free** (reused from the bulk query) — the name is the
+  lower-case `exposure.exposure` column (`db_row.airmass`), vs UPPER-case for a
+  FITS `header.<KEY>` (`header.AIRMASS`).
+- **jsonb blocks** → `db_row.<block>['<key>']`, e.g. `db_row.tcs['mount_ha']`,
+  `db_row.telescope['air_temp']` — also free.
+- **`telemetry.<name>`** needs a `TelemetryField` of that name registered first
+  (`DEFAULT_TELEMETRY_FIELDS` is empty by default), else `KeyError` —
+  [section 3](#3-correlate-telemetry-with-an-exposure).
+- **A `TableSource`** (e.g. WIYN) isn't a spec — run the selection, then join it
+  on `EXPID` ([section 6](#6-bring-in-your-own--external-data-tablesource)).
 
 Two options you'll want on real data:
 
@@ -311,6 +323,20 @@ exp = Exposure(expid, table_sources=[
     TableSource("wiyn_seeing", path="data/wiyn_seeing.csv")])
 row = exp.table_source("wiyn_seeing")  # None if no WIYN match
 fwhm = None if row is None else row["WIYN_FWHM"]
+```
+
+**With `select_exposures`** (the bulk case): a `TableSource` isn't a column spec,
+but since it's EXPID-indexed you just join it onto the result afterward:
+
+```python
+from telemetry_mining.tables import load_table
+wiyn = TableSource("wiyn_seeing", path="data/wiyn_seeing.csv")
+
+sel = select_exposures("night between %s and %s",
+                       params=(20260101, 20260701))
+sel = sel.merge(load_table(wiyn),
+                left_on="EXPID", right_index=True, how="left")
+# -> WIYN_FWHM etc. added; NaN for exposures with no WIYN match
 ```
 
 This is the general recipe for **any** external time-stamped source: pre-match to

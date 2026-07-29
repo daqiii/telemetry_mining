@@ -1298,25 +1298,84 @@ e.g. `order_by="night, id"` for something else.
 table = select_exposures(
     "night between %s and %s and program = %s",
     columns={
-        # offline GFA pipeline -- more trustworthy than the online DB
-        # estimate
-        "seeing_gfa":  "gfa_row.FWHM_ASEC",
-        "etc_fracb":   "header.ETCFRACB",
-        "mirror_temp": "telemetry.mirror_avg_temp",
-        "air_temp":    "telemetry.air_temp",
+        # free -- read from the one bulk exposure.exposure query:
+        "airmass": "db_row.airmass",  # a flat column
+        "mount_ha": "db_row.tcs['mount_ha']",  # jsonb value
+        "air_temp": "db_row.telescope['air_temp']",  # jsonb value
+        # one lookup per matching exposure:
+        "seeing_gfa": "gfa_row.FWHM_ASEC",  # offline GFA summary
+        "etc_fracb": "header.ETCFRACB",  # a FITS header key
     },
     params=(20260101, 20260701, "dark"),
 )
-table["temp_diff"] = table["mirror_temp"] - table["air_temp"]
 ```
 
-Any `"db_row.<column>"` spec is free — every matching row's full
-`exposure.exposure` record is already fetched by the one bulk query
-`select_exposures` needs for the `WHERE` filter, so it's reused rather than
-re-queried per exposure. Specs touching anything else (`header`, `gfa_row`,
-`telemetry`, a callable) open/query that source once per matching exposure
-— see [Caching and cost model](#caching-and-cost-model) for why this can't
-be generically collapsed further.
+**`config` defaults to `Config.default()`** — the example omits it on purpose;
+pass `config=...` only to point at a different site/DB. `EXPID` and `NIGHT` are
+always in the returned frame; add derived columns with plain pandas afterward
+(e.g. `table["x"] = table["a"] - table["b"]`).
+
+**Reading `db_row` is free** — the `WHERE` filter already does one bulk
+`SELECT *` from `exposure.exposure`, and `select_exposures` reuses that row, so
+any spec into it costs nothing extra. Two forms:
+
+- **flat column** → `db_row.<column>` (e.g. `db_row.airmass`, `db_row.exptime`,
+  `db_row.mountha`). The name is the **`exposure.exposure` column name, which is
+  lower-case** — unlike a FITS `header.<KEY>` spec, whose keys are UPPER-case
+  (`header.AIRMASS`).
+- **value inside a jsonb block** → `db_row.<block>['<key>']` (e.g.
+  `db_row.tcs['mount_ha']`, `db_row.telescope['air_temp']`,
+  `db_row.hexapod['rot_rate']`). The jsonb columns (`tcs`, `telescope`,
+  `hexapod`, `etc`, `guider`, `dome`, `tower`, ...) auto-decode to dicts, so you
+  dot into the block, then index the key. Also free.
+
+See [FIELDS.md](FIELDS.md) for every `exposure.exposure` column and the keys in
+each jsonb block. Every **other** prefix costs one lookup per matching exposure
+— `header.<KEY>` (a FITS open), `gfa_row.<COL>`, `telemetry.<name>`, or a
+callable — see [Caching and cost model](#caching-and-cost-model).
+
+**`telemetry.<name>` specs need a registered field first.** A `telemetry.<name>`
+spec resolves to `exp.telemetry_field('<name>')`, and `DEFAULT_TELEMETRY_FIELDS`
+is **empty by default**, so an *unregistered* name raises `KeyError`. Register it
+once (process-wide), then the spec works — handy when a quantity isn't in
+`db_row` (e.g. mirror temperature; `db_row.pmirtemp` is often `None` even when
+the telemetry table has it):
+
+```python
+from telemetry_mining.telemetry import (
+    TelemetryField, DEFAULT_TELEMETRY_FIELDS)
+DEFAULT_TELEMETRY_FIELDS.append(TelemetryField(
+    name="mirror_avg_temp", table="environmentmonitor_telescope",
+    columns=["mirror_avg_temp"]))
+# now "telemetry.mirror_avg_temp" works as a columns spec
+```
+
+**Custom `TableSource`s (e.g. WIYN seeing) — join them after the fact.** Table
+sources are **not** part of the dotted spec grammar (only `telemetry.<name>` is
+special-cased). But a `TableSource` like WIYN is already an **EXPID-indexed**
+table, so the clean approach is a pandas join onto the result:
+
+```python
+from telemetry_mining.tables import TableSource, load_table
+wiyn = TableSource("wiyn_seeing", path="data/wiyn_seeing.csv")
+table = table.merge(load_table(wiyn),
+                    left_on="EXPID", right_index=True, how="left")
+# -> adds WIYN_FWHM etc.; NaN for exposures with no WIYN match
+```
+
+The `TableSource` only *reads* the pre-built `data/wiyn_seeing.csv`; **building**
+that csv from raw WIYN logs (the step that needs an exposure list) is the
+separate `scripts/build_wiyn_seeing.py` — see
+[Custom table sources](#custom-table-sources). To instead get it as a column
+*inside* the `select_exposures` call, use a callable spec:
+
+```python
+from telemetry_mining.tables import table_source_row
+def wiyn_fwhm(exp):
+    row = table_source_row(wiyn, exp.expid)
+    return None if row is None else row["WIYN_FWHM"]
+# columns={..., "wiyn_fwhm": wiyn_fwhm}
+```
 
 **`on_error` — handling missing files in a bulk scan.** A spec touching a
 file-based source (`header`, `gfa_row`, ...) can fail for a given exposure
