@@ -325,7 +325,7 @@ applicable), so swapping environments is one object, not a search-and-replace.
 Exposure(
     expid: int,
     night: int | None = None,
-    config: Config | None = None,
+    config: Config | None = None,  # None -> Config.default()
     telemetry_fields: Sequence[TelemetryField] | None = None,
 )
 ```
@@ -1270,7 +1270,7 @@ select_exposures(
     where: str,  # raw SQL WHERE fragment against exposure.exposure
     # output column name -> spec (see below)
     columns: dict[str, Spec] | None = None,
-    config: Config | None = None,
+    config: Config | None = None,  # None -> Config.default()
     # parameterize `where`, same as db.fetch_all
     params: Sequence | Mapping | None = None,
     # raw SQL ORDER BY fragment; None skips ordering
@@ -1445,7 +1445,7 @@ something richer — a time series, a per-fiber table.
 harvest(
     expids: Sequence[int],
     fn: Callable[[Exposure], Any],
-    config: Config | None = None,
+    config: Config | None = None,  # None -> Config.default()
     concat: bool = False,
     # None = sequential (default); see select_exposures's max_workers
     # docs
