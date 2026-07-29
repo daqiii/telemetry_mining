@@ -452,6 +452,7 @@ reports (see `DAR_FIBER_LOSS_REPORT.md`) and are listed here only for completene
 Short list; each links to the full explanation in the reference.
 
 - **Reuse the `Exposure` object** — accessors cache on the instance; re-constructing throws that away.
+- **Mind the lookup cost** — `db_row`/jsonb are cheapest (free inside `select_exposures`); `telemetry` is one query per exposure; `cframe_table` is the slow one (gzip). Full ranking in [API.md → Caching and cost model](API.md#caching-and-cost-model) and [FIELDS.md](FIELDS.md#lookup-cost-rough-guide).
 - **Trending over time?** The `daily` reduction isn't uniformly reprocessed — a trend can be a pipeline change ([caveat](API.md#data-uniformity-caveat-dailies-are-not-uniformly-reprocessed)).
 - **`sequence='DESI'` drops split follow-ups** — use `ANY(ARRAY['DESI','_Split'])` ([gotchas](API.md#known-gotchas)).
 - **`BACKUP` exposures flag standard stars in `MWS_TARGET`**, not `DESI_TARGET` ([gotchas](API.md#known-gotchas)).

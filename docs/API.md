@@ -1971,6 +1971,17 @@ and [Column/value specs](#columnvalue-specs).
 
 ## Caching and cost model
 
+**At a glance — cost of pulling one field per exposure** (details below):
+
+| Source | Cost per exposure |
+|---|---|
+| `db_row.<col>` and jsonb blocks | **cheapest** — one indexed lookup by primary key, and **free inside `select_exposures`** (bundled in the one bulk WHERE query) |
+| `header.<KEY>` | one FITS header open (a file read) |
+| `telemetry(...)` / `telemetry_field` | one indexed time-range query (`nearest` runs two); fast each, but **one round-trip per exposure** |
+| `redux_row` / `gfa_row` / `exposure_table_flags` | a **big table read once per process**, then O(1) — first access pays it (~12 MB / ~400 MB), rest are free |
+| `fiberqa` / `petalqa` / `calibstars` | one small per-exposure file open each |
+| `cframe_table(camera)` | **slowest** — gzip-decompresses a whole cframe file (~1–2.5 s each); use `cframe_tables([...])` for parallel-process reads |
+
 - Constructing `Exposure(expid)` does no I/O at all.
 - Every property listed above (except `guide_frame`/`guide_cube_path` and the
   `cframe_*` methods) is a `functools.cached_property`: computed once per

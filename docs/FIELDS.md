@@ -29,7 +29,7 @@ queries are listed here. What's covered:
 from telemetry_mining import Config, db
 
 cols = db.fetch_all(
-    Config.default(),                                    # 1st arg is ALWAYS a Config
+    Config.default(),  # 1st arg is ALWAYS a Config
     "SELECT column_name, data_type FROM information_schema.columns "
     "WHERE table_schema='telemetry' AND table_name='<your table>'",
 )
@@ -100,6 +100,51 @@ has a flat top-level `rotrate` column that looks like a third candidate but is
 actually dead (see that row below). Don't assume a name-based lookup would
 work across sources without checking each `Source` cell individually; that's
 exactly why this column exists instead of one.
+
+## The same quantity often lives in several sources
+
+Many physical quantities are recorded in **more than one place**, and the values
+are **not always identical** — they're independent snapshots taken at slightly
+different times, or by different subsystems. The common overlaps to be aware of:
+
+- **FITS `header.<KEY>` vs DB `db_row.<column>`** — most header keywords are also
+  mirrored into `exposure.exposure`, but *not reliably*: e.g. `winddir` / `windspd`
+  / `gust` / `pmirtemp` are frequently `None` in the DB row while the header has
+  them populated. Prefer the header for those; prefer `db_row` for the fields it
+  carries well.
+- **A DB flat column vs a DB jsonb block** — e.g. `db_row['mountha']` and
+  `db_row['tcs']['mount_ha']` are *both* mount hour angle, from different snapshots
+  (confirmed to differ, e.g. 0.204 vs 0.383). And the flat `db_row['rotrate']` is
+  **dead** (a known ingestion bug) — use `db_row['hexapod']['rot_rate']` instead.
+- **A DB jsonb block vs a `telemetry` table** — a `db_row` jsonb block usually holds
+  a *single* snapshot of something the `telemetry` schema records as a full time
+  series. E.g. `db_row['telescope']['air_temp']` is one value; the
+  `telemetry.environmentmonitor_telescope` table is the whole series. Use the jsonb
+  block for a cheap single number, the telemetry table when you need the time series
+  or a specific nearest-in-time value.
+
+When two sources *should* agree, **check before assuming** — `fiberqa['EFFTIME']`
+vs `redux_row['EFFTIME_SPEC']` (they match) and `fiberqa['FPRMS2D']` vs
+`db_row['posrms']` (they *don't*) are worked examples below.
+
+## Lookup cost (rough guide)
+
+How expensive is it to pull a field once you have an `Exposure`? Rough ranking
+(full detail in [API.md → Caching and cost model](API.md#caching-and-cost-model)):
+
+| Source | Cost per exposure |
+|---|---|
+| `db_row.<col>` and jsonb blocks | **cheapest** — one indexed lookup by primary key, and **free inside `select_exposures`** (bundled in the one bulk WHERE query) |
+| `header.<KEY>` | one FITS header open (a file read) |
+| `telemetry(...)` / `telemetry_field` | one indexed time-range query (`nearest` runs two); fast each, but **one round-trip per exposure** |
+| `redux_row` / `gfa_row` / `exposure_table_flags` | a **big table read once per process**, then O(1) — the first access pays it (~12 MB / ~400 MB), the rest are free |
+| `fiberqa` / `petalqa` / `calibstars` | one small per-exposure file open each |
+| `cframe_table(camera)` | **slowest** — gzip-decompresses a whole cframe file (~1–2.5 s each); use `cframe_tables([...])` to read cameras in parallel processes |
+
+Two rules of thumb: **reuse one `Exposure` object** (accessors cache on it), and
+remember a bulk scan does **one round-trip per exposure per source touched** — fine
+for hundreds, but tens of thousands of exposures × a telemetry lookup is tens of
+thousands of queries (there's no vectorized telemetry query yet).
 
 ---
 
@@ -557,97 +602,97 @@ One row per fiber, indexed by (PETAL_LOC, DEVICE_LOC) once read via `fits_io.rea
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| PETAL_LOC | >i8 |  | 4 | `coords['PETAL_LOC']` (per-fiber table) |
+| CNT_ERR_0 | >f8 |  | 0.001 | `coords['CNT_ERR_0']` (per-fiber table) |
+| CNT_ERR_1 | >f8 |  | 0.001 | `coords['CNT_ERR_1']` (per-fiber table) |
+| CNT_MAG_0 | >f8 |  | 13.331 | `coords['CNT_MAG_0']` (per-fiber table) |
+| CNT_MAG_1 | >f8 |  | 13.441 | `coords['CNT_MAG_1']` (per-fiber table) |
+| CNT_X_0 | >f8 |  | -286.82000000000016 | `coords['CNT_X_0']` (per-fiber table) |
+| CNT_X_1 | >f8 |  | -286.6489999999999 | `coords['CNT_X_1']` (per-fiber table) |
+| CNT_Y_0 | >f8 |  | 551.3829999999998 | `coords['CNT_Y_0']` (per-fiber table) |
+| CNT_Y_1 | >f8 |  | 551.4580000000001 | `coords['CNT_Y_1']` (per-fiber table) |
 | DEVICE_LOC | >i8 |  | 25 | `coords['DEVICE_LOC']` (per-fiber table) |
-| POS_Q | >f8 | Fiber positioner theta arm angle | 62.6078714537288 | `coords['POS_Q']` (per-fiber table) |
-| POS_S | >f8 | Fiber positioner phi arm angle | 89.16406750003033 | `coords['POS_S']` (per-fiber table) |
-| POS_FLAGS | >f8 | Positioner status bitmask | 16842756.0 | `coords['POS_FLAGS']` (per-fiber table) |
-| POS_X | >f8 | Fiber X position, focal-plane coords | 41.020101682497774 | `coords['POS_X']` (per-fiber table) |
-| POS_Y | >f8 | Fiber Y position, focal-plane coords | 79.16241488372437 | `coords['POS_Y']` (per-fiber table) |
-| POS_LINPHI | <U5 | Whether this positioner's phi arm is in the 'linear' calibration regime | False | `coords['POS_LINPHI']` (per-fiber table) |
-| POS_ID | <U6 |  | M00283 | `coords['POS_ID']` (per-fiber table) |
-| TARGET_RA | >f8 | Target RA from fiberassign | 215.95043141357516 | `coords['TARGET_RA']` (per-fiber table) |
-| TARGET_DEC | >f8 | Target Dec from fiberassign | -8.680371491658748 | `coords['TARGET_DEC']` (per-fiber table) |
+| DX_0 | >f8 |  | 0.006380328422086341 | `coords['DX_0']` (per-fiber table) |
+| DX_1 | >f8 |  | 0.003635900698307432 | `coords['DX_1']` (per-fiber table) |
+| DY_0 | >f8 |  | -0.013355827626028053 | `coords['DY_0']` (per-fiber table) |
+| DY_1 | >f8 |  | -0.014734424551726643 | `coords['DY_1']` (per-fiber table) |
+| EXP_Q_0 | >f8 |  | 62.6078714537288 | `coords['EXP_Q_0']` (per-fiber table) |
+| EXP_Q_1 | >f8 |  | 62.6078714537288 | `coords['EXP_Q_1']` (per-fiber table) |
+| EXP_S_0 | >f8 |  | 89.16406750003033 | `coords['EXP_S_0']` (per-fiber table) |
+| EXP_S_1 | >f8 |  | 89.16406750003033 | `coords['EXP_S_1']` (per-fiber table) |
+| EXP_X_0 | >f8 |  | 41.020101682497774 | `coords['EXP_X_0']` (per-fiber table) |
+| EXP_X_1 | >f8 |  | 41.020101682497774 | `coords['EXP_X_1']` (per-fiber table) |
+| EXP_Y_0 | >f8 |  | 79.16241488372437 | `coords['EXP_Y_0']` (per-fiber table) |
+| EXP_Y_1 | >f8 |  | 79.16241488372437 | `coords['EXP_Y_1']` (per-fiber table) |
+| F_DX_0 | >f8 |  | 0.007 | `coords['F_DX_0']` (per-fiber table) |
+| F_DX_1 | >f8 |  | 0.014 | `coords['F_DX_1']` (per-fiber table) |
+| F_DY_0 | >f8 |  | -0.01 | `coords['F_DY_0']` (per-fiber table) |
+| F_DY_1 | >f8 |  | -0.02 | `coords['F_DY_1']` (per-fiber table) |
+| F_FPA_X_0 | >f8 |  | 41.0 | `coords['F_FPA_X_0']` (per-fiber table) |
+| F_FPA_X_1 | >f8 |  | 40.998 | `coords['F_FPA_X_1']` (per-fiber table) |
+| F_FPA_Y_0 | >f8 |  | 79.167 | `coords['F_FPA_Y_0']` (per-fiber table) |
+| F_FPA_Y_1 | >f8 |  | 79.174 | `coords['F_FPA_Y_1']` (per-fiber table) |
+| FA_FIBER | >f8 |  | 2107.0 | `coords['FA_FIBER']` (per-fiber table) |
 | FA_X | >f4 |  | 41.020092 | `coords['FA_X']` (per-fiber table) |
 | FA_Y | >f4 |  | 79.16241 | `coords['FA_Y']` (per-fiber table) |
-| FA_FIBER | >f8 |  | 2107.0 | `coords['FA_FIBER']` (per-fiber table) |
-| REQ_Q | >f8 |  | 62.595 | `coords['REQ_Q']` (per-fiber table) |
-| REQ_S | >f8 |  | 89.144 | `coords['REQ_S']` (per-fiber table) |
-| REQ_X | >f8 |  | 41.029 | `coords['REQ_X']` (per-fiber table) |
-| REQ_Y | >f8 |  | 79.135 | `coords['REQ_Y']` (per-fiber table) |
-| EXP_Q_0 | >f8 |  | 62.6078714537288 | `coords['EXP_Q_0']` (per-fiber table) |
-| EXP_S_0 | >f8 |  | 89.16406750003033 | `coords['EXP_S_0']` (per-fiber table) |
-| FLAGS_EXP_0 | >i8 |  | 16842756 | `coords['FLAGS_EXP_0']` (per-fiber table) |
-| EXP_X_0 | >f8 |  | 41.020101682497774 | `coords['EXP_X_0']` (per-fiber table) |
-| EXP_Y_0 | >f8 |  | 79.16241488372437 | `coords['EXP_Y_0']` (per-fiber table) |
-| FVC_X_0 | >f8 |  | -288.707 | `coords['FVC_X_0']` (per-fiber table) |
-| FVC_Y_0 | >f8 |  | 554.867 | `coords['FVC_Y_0']` (per-fiber table) |
-| FLAGS_FVC_0 | >i8 |  | 16842756 | `coords['FLAGS_FVC_0']` (per-fiber table) |
-| CNT_X_0 | >f8 |  | -286.82000000000016 | `coords['CNT_X_0']` (per-fiber table) |
-| CNT_Y_0 | >f8 |  | 551.3829999999998 | `coords['CNT_Y_0']` (per-fiber table) |
-| FLAGS_CNT_0 | >i8 |  | 16842821 | `coords['FLAGS_CNT_0']` (per-fiber table) |
-| CNT_MAG_0 | >f8 |  | 13.331 | `coords['CNT_MAG_0']` (per-fiber table) |
-| CNT_ERR_0 | >f8 |  | 0.001 | `coords['CNT_ERR_0']` (per-fiber table) |
-| DX_0 | >f8 |  | 0.006380328422086341 | `coords['DX_0']` (per-fiber table) |
-| DY_0 | >f8 |  | -0.013355827626028053 | `coords['DY_0']` (per-fiber table) |
-| T_DX_0 | >f8 |  | 0.006380328422086341 | `coords['T_DX_0']` (per-fiber table) |
-| T_DY_0 | >f8 |  | -0.013355827626028053 | `coords['T_DY_0']` (per-fiber table) |
-| F_DX_0 | >f8 |  | 0.007 | `coords['F_DX_0']` (per-fiber table) |
-| F_DY_0 | >f8 |  | -0.01 | `coords['F_DY_0']` (per-fiber table) |
-| FPA_X_0 | >f8 |  | 41.000619671577915 | `coords['FPA_X_0']` (per-fiber table) |
-| FPA_Y_0 | >f8 |  | 79.17035582762603 | `coords['FPA_Y_0']` (per-fiber table) |
-| T_FPA_X_0 | >f8 |  | 41.000619671577915 | `coords['T_FPA_X_0']` (per-fiber table) |
-| T_FPA_Y_0 | >f8 |  | 79.17035582762603 | `coords['T_FPA_Y_0']` (per-fiber table) |
-| F_FPA_X_0 | >f8 |  | 41.0 | `coords['F_FPA_X_0']` (per-fiber table) |
-| F_FPA_Y_0 | >f8 |  | 79.167 | `coords['F_FPA_Y_0']` (per-fiber table) |
-| TURB_X_0 | >f8 |  | -0.0006196715779136592 | `coords['TURB_X_0']` (per-fiber table) |
-| TURB_Y_0 | >f8 |  | -0.0033558276260280528 | `coords['TURB_Y_0']` (per-fiber table) |
-| FLAGS_COR_0 | >i8 |  | 16842821 | `coords['FLAGS_COR_0']` (per-fiber table) |
-| REQ_X_0 | >f8 |  | 41.007000000000005 | `coords['REQ_X_0']` (per-fiber table) |
-| REQ_Y_0 | >f8 |  | 79.157 | `coords['REQ_Y_0']` (per-fiber table) |
-| OFFSET_0 | >f8 |  | 0.014801578373601139 | `coords['OFFSET_0']` (per-fiber table) |
-| HACK_X_0 | >f8 |  | 41.003 | `coords['HACK_X_0']` (per-fiber table) |
-| HACK_Y_0 | >f8 |  | 79.178 | `coords['HACK_Y_0']` (per-fiber table) |
-| EXP_Q_1 | >f8 |  | 62.6078714537288 | `coords['EXP_Q_1']` (per-fiber table) |
-| EXP_S_1 | >f8 |  | 89.16406750003033 | `coords['EXP_S_1']` (per-fiber table) |
-| FLAGS_EXP_1 | >i8 |  | 16842756 | `coords['FLAGS_EXP_1']` (per-fiber table) |
-| EXP_X_1 | >f8 |  | 41.020101682497774 | `coords['EXP_X_1']` (per-fiber table) |
-| EXP_Y_1 | >f8 |  | 79.16241488372437 | `coords['EXP_Y_1']` (per-fiber table) |
-| FVC_X_1 | >f8 |  | -288.614 | `coords['FVC_X_1']` (per-fiber table) |
-| FVC_Y_1 | >f8 |  | 554.914 | `coords['FVC_Y_1']` (per-fiber table) |
-| FLAGS_FVC_1 | >i8 |  | 16842756 | `coords['FLAGS_FVC_1']` (per-fiber table) |
-| CNT_X_1 | >f8 |  | -286.6489999999999 | `coords['CNT_X_1']` (per-fiber table) |
-| CNT_Y_1 | >f8 |  | 551.4580000000001 | `coords['CNT_Y_1']` (per-fiber table) |
-| FLAGS_CNT_1 | >i8 |  | 16842821 | `coords['FLAGS_CNT_1']` (per-fiber table) |
-| CNT_MAG_1 | >f8 |  | 13.441 | `coords['CNT_MAG_1']` (per-fiber table) |
-| CNT_ERR_1 | >f8 |  | 0.001 | `coords['CNT_ERR_1']` (per-fiber table) |
-| DX_1 | >f8 |  | 0.003635900698307432 | `coords['DX_1']` (per-fiber table) |
-| DY_1 | >f8 |  | -0.014734424551726643 | `coords['DY_1']` (per-fiber table) |
-| T_DX_1 | >f8 |  | 0.003635900698307432 | `coords['T_DX_1']` (per-fiber table) |
-| T_DY_1 | >f8 |  | -0.014734424551726643 | `coords['T_DY_1']` (per-fiber table) |
-| F_DX_1 | >f8 |  | 0.014 | `coords['F_DX_1']` (per-fiber table) |
-| F_DY_1 | >f8 |  | -0.02 | `coords['F_DY_1']` (per-fiber table) |
-| FPA_X_1 | >f8 |  | 41.00836409930169 | `coords['FPA_X_1']` (per-fiber table) |
-| FPA_Y_1 | >f8 |  | 79.16873442455173 | `coords['FPA_Y_1']` (per-fiber table) |
-| T_FPA_X_1 | >f8 |  | 41.00836409930169 | `coords['T_FPA_X_1']` (per-fiber table) |
-| T_FPA_Y_1 | >f8 |  | 79.16873442455173 | `coords['T_FPA_Y_1']` (per-fiber table) |
-| F_FPA_X_1 | >f8 |  | 40.998 | `coords['F_FPA_X_1']` (per-fiber table) |
-| F_FPA_Y_1 | >f8 |  | 79.174 | `coords['F_FPA_Y_1']` (per-fiber table) |
-| TURB_X_1 | >f8 |  | -0.010364099301692568 | `coords['TURB_X_1']` (per-fiber table) |
-| TURB_Y_1 | >f8 |  | 0.0052655754482733574 | `coords['TURB_Y_1']` (per-fiber table) |
-| FLAGS_COR_1 | >i8 |  | 16842821 | `coords['FLAGS_COR_1']` (per-fiber table) |
-| REQ_X_1 | >f8 |  | 41.01199999999999 | `coords['REQ_X_1']` (per-fiber table) |
-| REQ_Y_1 | >f8 |  | 79.154 | `coords['REQ_Y_1']` (per-fiber table) |
-| OFFSET_1 | >f8 |  | 0.015176397489472835 | `coords['OFFSET_1']` (per-fiber table) |
-| HACK_X_1 | >f8 |  | 40.993 | `coords['HACK_X_1']` (per-fiber table) |
-| HACK_Y_1 | >f8 |  | 79.187 | `coords['HACK_Y_1']` (per-fiber table) |
-| FIBER_RA | >f8 | Fiber pointing RA (deg) | 215.95044673663642 | `coords['FIBER_RA']` (per-fiber table) |
 | FIBER_DEC | >f8 | Fiber pointing Dec (deg) | -8.680311208436967 | `coords['FIBER_DEC']` (per-fiber table) |
-| FIBER_X | >f8 | Fiber X (post-correction) | 41.00836409930169 | `coords['FIBER_X']` (per-fiber table) |
-| FIBER_Y | >f8 | Fiber Y (post-correction) | 79.16873442455173 | `coords['FIBER_Y']` (per-fiber table) |
 | FIBER_DX | >f4 |  | 0.0036359008 | `coords['FIBER_DX']` (per-fiber table) |
 | FIBER_DY | >f4 |  | -0.014734425 | `coords['FIBER_DY']` (per-fiber table) |
 | FIBER_OFFSET | >f4 |  | 0.015176398 | `coords['FIBER_OFFSET']` (per-fiber table) |
+| FIBER_RA | >f8 | Fiber pointing RA (deg) | 215.95044673663642 | `coords['FIBER_RA']` (per-fiber table) |
+| FIBER_X | >f8 | Fiber X (post-correction) | 41.00836409930169 | `coords['FIBER_X']` (per-fiber table) |
+| FIBER_Y | >f8 | Fiber Y (post-correction) | 79.16873442455173 | `coords['FIBER_Y']` (per-fiber table) |
+| FLAGS_CNT_0 | >i8 |  | 16842821 | `coords['FLAGS_CNT_0']` (per-fiber table) |
+| FLAGS_CNT_1 | >i8 |  | 16842821 | `coords['FLAGS_CNT_1']` (per-fiber table) |
+| FLAGS_COR_0 | >i8 |  | 16842821 | `coords['FLAGS_COR_0']` (per-fiber table) |
+| FLAGS_COR_1 | >i8 |  | 16842821 | `coords['FLAGS_COR_1']` (per-fiber table) |
+| FLAGS_EXP_0 | >i8 |  | 16842756 | `coords['FLAGS_EXP_0']` (per-fiber table) |
+| FLAGS_EXP_1 | >i8 |  | 16842756 | `coords['FLAGS_EXP_1']` (per-fiber table) |
+| FLAGS_FVC_0 | >i8 |  | 16842756 | `coords['FLAGS_FVC_0']` (per-fiber table) |
+| FLAGS_FVC_1 | >i8 |  | 16842756 | `coords['FLAGS_FVC_1']` (per-fiber table) |
+| FPA_X_0 | >f8 |  | 41.000619671577915 | `coords['FPA_X_0']` (per-fiber table) |
+| FPA_X_1 | >f8 |  | 41.00836409930169 | `coords['FPA_X_1']` (per-fiber table) |
+| FPA_Y_0 | >f8 |  | 79.17035582762603 | `coords['FPA_Y_0']` (per-fiber table) |
+| FPA_Y_1 | >f8 |  | 79.16873442455173 | `coords['FPA_Y_1']` (per-fiber table) |
+| FVC_X_0 | >f8 |  | -288.707 | `coords['FVC_X_0']` (per-fiber table) |
+| FVC_X_1 | >f8 |  | -288.614 | `coords['FVC_X_1']` (per-fiber table) |
+| FVC_Y_0 | >f8 |  | 554.867 | `coords['FVC_Y_0']` (per-fiber table) |
+| FVC_Y_1 | >f8 |  | 554.914 | `coords['FVC_Y_1']` (per-fiber table) |
+| HACK_X_0 | >f8 |  | 41.003 | `coords['HACK_X_0']` (per-fiber table) |
+| HACK_X_1 | >f8 |  | 40.993 | `coords['HACK_X_1']` (per-fiber table) |
+| HACK_Y_0 | >f8 |  | 79.178 | `coords['HACK_Y_0']` (per-fiber table) |
+| HACK_Y_1 | >f8 |  | 79.187 | `coords['HACK_Y_1']` (per-fiber table) |
+| OFFSET_0 | >f8 |  | 0.014801578373601139 | `coords['OFFSET_0']` (per-fiber table) |
+| OFFSET_1 | >f8 |  | 0.015176397489472835 | `coords['OFFSET_1']` (per-fiber table) |
+| PETAL_LOC | >i8 |  | 4 | `coords['PETAL_LOC']` (per-fiber table) |
+| POS_FLAGS | >f8 | Positioner status bitmask | 16842756.0 | `coords['POS_FLAGS']` (per-fiber table) |
+| POS_ID | <U6 |  | M00283 | `coords['POS_ID']` (per-fiber table) |
+| POS_LINPHI | <U5 | Whether this positioner's phi arm is in the 'linear' calibration regime | False | `coords['POS_LINPHI']` (per-fiber table) |
+| POS_Q | >f8 | Fiber positioner theta arm angle | 62.6078714537288 | `coords['POS_Q']` (per-fiber table) |
+| POS_S | >f8 | Fiber positioner phi arm angle | 89.16406750003033 | `coords['POS_S']` (per-fiber table) |
+| POS_X | >f8 | Fiber X position, focal-plane coords | 41.020101682497774 | `coords['POS_X']` (per-fiber table) |
+| POS_Y | >f8 | Fiber Y position, focal-plane coords | 79.16241488372437 | `coords['POS_Y']` (per-fiber table) |
+| REQ_Q | >f8 |  | 62.595 | `coords['REQ_Q']` (per-fiber table) |
+| REQ_S | >f8 |  | 89.144 | `coords['REQ_S']` (per-fiber table) |
+| REQ_X | >f8 |  | 41.029 | `coords['REQ_X']` (per-fiber table) |
+| REQ_X_0 | >f8 |  | 41.007000000000005 | `coords['REQ_X_0']` (per-fiber table) |
+| REQ_X_1 | >f8 |  | 41.01199999999999 | `coords['REQ_X_1']` (per-fiber table) |
+| REQ_Y | >f8 |  | 79.135 | `coords['REQ_Y']` (per-fiber table) |
+| REQ_Y_0 | >f8 |  | 79.157 | `coords['REQ_Y_0']` (per-fiber table) |
+| REQ_Y_1 | >f8 |  | 79.154 | `coords['REQ_Y_1']` (per-fiber table) |
+| T_DX_0 | >f8 |  | 0.006380328422086341 | `coords['T_DX_0']` (per-fiber table) |
+| T_DX_1 | >f8 |  | 0.003635900698307432 | `coords['T_DX_1']` (per-fiber table) |
+| T_DY_0 | >f8 |  | -0.013355827626028053 | `coords['T_DY_0']` (per-fiber table) |
+| T_DY_1 | >f8 |  | -0.014734424551726643 | `coords['T_DY_1']` (per-fiber table) |
+| T_FPA_X_0 | >f8 |  | 41.000619671577915 | `coords['T_FPA_X_0']` (per-fiber table) |
+| T_FPA_X_1 | >f8 |  | 41.00836409930169 | `coords['T_FPA_X_1']` (per-fiber table) |
+| T_FPA_Y_0 | >f8 |  | 79.17035582762603 | `coords['T_FPA_Y_0']` (per-fiber table) |
+| T_FPA_Y_1 | >f8 |  | 79.16873442455173 | `coords['T_FPA_Y_1']` (per-fiber table) |
+| TARGET_DEC | >f8 | Target Dec from fiberassign | -8.680371491658748 | `coords['TARGET_DEC']` (per-fiber table) |
+| TARGET_RA | >f8 | Target RA from fiberassign | 215.95043141357516 | `coords['TARGET_RA']` (per-fiber table) |
+| TURB_X_0 | >f8 |  | -0.0006196715779136592 | `coords['TURB_X_0']` (per-fiber table) |
+| TURB_X_1 | >f8 |  | -0.010364099301692568 | `coords['TURB_X_1']` (per-fiber table) |
+| TURB_Y_0 | >f8 |  | -0.0033558276260280528 | `coords['TURB_Y_0']` (per-fiber table) |
+| TURB_Y_1 | >f8 |  | 0.0052655754482733574 | `coords['TURB_Y_1']` (per-fiber table) |
 
 
 ## Exposure directory: `etc-<expid>.json` -- `header` block (scalar ETC summary)
@@ -684,57 +729,57 @@ Live example row: expid 359483. Full schema, one row per (science) exposure.
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| NIGHT | int64 | Observing night (YYYYMMDD) | 20260702 | `redux_row['NIGHT']` |
-| EXPID | int64 | Exposure ID | 359483 | `redux_row['EXPID']` |
-| TILEID | int64 | Tile ID observed | 31562 | `redux_row['TILEID']` |
-| TILERA | float64 |  | 216.12 | `redux_row['TILERA']` |
-| TILEDEC | float64 |  | -9.006 | `redux_row['TILEDEC']` |
-| MJD | float64 |  | 61224.17344401 | `redux_row['MJD']` |
-| SURVEY | str |  | main | `redux_row['SURVEY']` |
-| PROGRAM | str | Survey program (dark/bright/backup/other) | bright | `redux_row['PROGRAM']` |
-| FAPRGRM | str |  | bright | `redux_row['FAPRGRM']` |
-| FAFLAVOR | str |  | mainbright | `redux_row['FAFLAVOR']` |
-| EXPTIME | float64 | Requested exposure time (s) | 1065.1 | `redux_row['EXPTIME']` |
+| AIRMASS | float64 |  | 1.382 | `redux_row['AIRMASS']` |
+| AIRMASS_GFA | float64 | Airmass from GFA analysis | 1.402 | `redux_row['AIRMASS_GFA']` |
+| BGS_EFFTIME_BRIGHT | float64 |  | 229.8 | `redux_row['BGS_EFFTIME_BRIGHT']` |
+| EBV | float64 |  | 0.062 | `redux_row['EBV']` |
+| EFFTIME_BACKUP_GFA | float64 |  | 283.6 | `redux_row['EFFTIME_BACKUP_GFA']` |
+| EFFTIME_BRIGHT_GFA | float64 |  | 261.1 | `redux_row['EFFTIME_BRIGHT_GFA']` |
+| EFFTIME_DARK_GFA | float64 |  | 231.0 | `redux_row['EFFTIME_DARK_GFA']` |
+| EFFTIME_ETC | float64 |  | 182.5 | `redux_row['EFFTIME_ETC']` |
+| EFFTIME_GFA | float64 |  | 261.1 | `redux_row['EFFTIME_GFA']` |
 | EFFTIME_SPEC | float64 | Pipeline-measured effective spectroscopic time (s) -- what exposure_table/exposure-qa's EFFTIME should closely match | 229.8 | `redux_row['EFFTIME_SPEC']` |
+| ELG_EFFTIME_DARK | float64 |  | 224.5 | `redux_row['ELG_EFFTIME_DARK']` |
+| EXPID | int64 | Exposure ID | 359483 | `redux_row['EXPID']` |
+| EXPTIME | float64 | Requested exposure time (s) | 1065.1 | `redux_row['EXPTIME']` |
+| FAFLAVOR | str |  | mainbright | `redux_row['FAFLAVOR']` |
+| FAPRGRM | str |  | bright | `redux_row['FAPRGRM']` |
+| FIBER_FRACFLUX_BGS_GFA | float64 |  | 0.138 | `redux_row['FIBER_FRACFLUX_BGS_GFA']` |
+| FIBER_FRACFLUX_ELG_GFA | float64 |  | 0.287 | `redux_row['FIBER_FRACFLUX_ELG_GFA']` |
+| FIBER_FRACFLUX_GFA | float64 |  | 0.37 | `redux_row['FIBER_FRACFLUX_GFA']` |
+| FIBERFAC_BGS_GFA | float64 |  | 0.624 | `redux_row['FIBERFAC_BGS_GFA']` |
+| FIBERFAC_ELG_GFA | float64 |  | 0.595 | `redux_row['FIBERFAC_ELG_GFA']` |
+| FIBERFAC_GFA | float64 |  | 0.559 | `redux_row['FIBERFAC_GFA']` |
 | GOALTIME | float64 |  | 180.0 | `redux_row['GOALTIME']` |
 | GOALTYPE | str |  | bright | `redux_row['GOALTYPE']` |
-| MINTFRAC | float64 |  | 0.85 | `redux_row['MINTFRAC']` |
-| AIRMASS | float64 |  | 1.382 | `redux_row['AIRMASS']` |
-| EBV | float64 |  | 0.062 | `redux_row['EBV']` |
-| SEEING_ETC | float64 |  | 2.279 | `redux_row['SEEING_ETC']` |
-| EFFTIME_ETC | float64 |  | 182.5 | `redux_row['EFFTIME_ETC']` |
-| TSNR2_ELG | float64 | Per-exposure total (summed across petals/arms) ELG template S/N^2 -- same metric as PETALQA's TSNR2_ELG_{B,R,Z} but pre-aggregated | 26.1 | `redux_row['TSNR2_ELG']` |
-| TSNR2_QSO | float64 | Per-exposure total QSO template S/N^2 | 5.5 | `redux_row['TSNR2_QSO']` |
-| TSNR2_LRG | float64 | Per-exposure total LRG template S/N^2 | 18.3 | `redux_row['TSNR2_LRG']` |
-| TSNR2_LYA | float64 | Per-exposure total LYA template S/N^2 | 14.0 | `redux_row['TSNR2_LYA']` |
-| TSNR2_BGS | float64 | Per-exposure total BGS template S/N^2 | 1641.5 | `redux_row['TSNR2_BGS']` |
-| TSNR2_GPBDARK | float64 |  | 2542.3 | `redux_row['TSNR2_GPBDARK']` |
-| TSNR2_GPBBRIGHT | float64 |  | 492.9 | `redux_row['TSNR2_GPBBRIGHT']` |
-| TSNR2_GPBBACKUP | float64 |  | 3889.7 | `redux_row['TSNR2_GPBBACKUP']` |
-| LRG_EFFTIME_DARK | float64 |  | 222.3 | `redux_row['LRG_EFFTIME_DARK']` |
-| ELG_EFFTIME_DARK | float64 |  | 224.5 | `redux_row['ELG_EFFTIME_DARK']` |
-| BGS_EFFTIME_BRIGHT | float64 |  | 229.8 | `redux_row['BGS_EFFTIME_BRIGHT']` |
-| LYA_EFFTIME_DARK | float64 |  | 165.4 | `redux_row['LYA_EFFTIME_DARK']` |
-| GPB_EFFTIME_DARK | float64 |  | 213.1 | `redux_row['GPB_EFFTIME_DARK']` |
-| GPB_EFFTIME_BRIGHT | float64 |  | 257.9 | `redux_row['GPB_EFFTIME_BRIGHT']` |
 | GPB_EFFTIME_BACKUP | float64 |  | 275.5 | `redux_row['GPB_EFFTIME_BACKUP']` |
-| TRANSPARENCY_GFA | float64 |  | 0.947 | `redux_row['TRANSPARENCY_GFA']` |
+| GPB_EFFTIME_BRIGHT | float64 |  | 257.9 | `redux_row['GPB_EFFTIME_BRIGHT']` |
+| GPB_EFFTIME_DARK | float64 |  | 213.1 | `redux_row['GPB_EFFTIME_DARK']` |
+| LRG_EFFTIME_DARK | float64 |  | 222.3 | `redux_row['LRG_EFFTIME_DARK']` |
+| LYA_EFFTIME_DARK | float64 |  | 165.4 | `redux_row['LYA_EFFTIME_DARK']` |
+| MINTFRAC | float64 |  | 0.85 | `redux_row['MINTFRAC']` |
+| MJD | float64 |  | 61224.17344401 | `redux_row['MJD']` |
+| NIGHT | int64 | Observing night (YYYYMMDD) | 20260702 | `redux_row['NIGHT']` |
+| PROGRAM | str | Survey program (dark/bright/backup/other) | bright | `redux_row['PROGRAM']` |
+| SEEING_ETC | float64 |  | 2.279 | `redux_row['SEEING_ETC']` |
 | SEEING_GFA | float64 | Seeing from (older/different) GFA analysis -- compare to gfa_row['FWHM_ASEC'] from the newer offline GFA pipeline | 1.518 | `redux_row['SEEING_GFA']` |
-| FIBER_FRACFLUX_GFA | float64 |  | 0.37 | `redux_row['FIBER_FRACFLUX_GFA']` |
-| FIBER_FRACFLUX_ELG_GFA | float64 |  | 0.287 | `redux_row['FIBER_FRACFLUX_ELG_GFA']` |
-| FIBER_FRACFLUX_BGS_GFA | float64 |  | 0.138 | `redux_row['FIBER_FRACFLUX_BGS_GFA']` |
-| FIBERFAC_GFA | float64 |  | 0.559 | `redux_row['FIBERFAC_GFA']` |
-| FIBERFAC_ELG_GFA | float64 |  | 0.595 | `redux_row['FIBERFAC_ELG_GFA']` |
-| FIBERFAC_BGS_GFA | float64 |  | 0.624 | `redux_row['FIBERFAC_BGS_GFA']` |
-| AIRMASS_GFA | float64 | Airmass from GFA analysis | 1.402 | `redux_row['AIRMASS_GFA']` |
 | SKY_MAG_AB_GFA | float64 |  | 20.767 | `redux_row['SKY_MAG_AB_GFA']` |
 | SKY_MAG_G_SPEC | float64 |  | 21.554 | `redux_row['SKY_MAG_G_SPEC']` |
 | SKY_MAG_R_SPEC | float64 |  | 20.844 | `redux_row['SKY_MAG_R_SPEC']` |
 | SKY_MAG_Z_SPEC | float64 |  | 19.012 | `redux_row['SKY_MAG_Z_SPEC']` |
-| EFFTIME_GFA | float64 |  | 261.1 | `redux_row['EFFTIME_GFA']` |
-| EFFTIME_DARK_GFA | float64 |  | 231.0 | `redux_row['EFFTIME_DARK_GFA']` |
-| EFFTIME_BRIGHT_GFA | float64 |  | 261.1 | `redux_row['EFFTIME_BRIGHT_GFA']` |
-| EFFTIME_BACKUP_GFA | float64 |  | 283.6 | `redux_row['EFFTIME_BACKUP_GFA']` |
+| SURVEY | str |  | main | `redux_row['SURVEY']` |
+| TILEDEC | float64 |  | -9.006 | `redux_row['TILEDEC']` |
+| TILEID | int64 | Tile ID observed | 31562 | `redux_row['TILEID']` |
+| TILERA | float64 |  | 216.12 | `redux_row['TILERA']` |
+| TRANSPARENCY_GFA | float64 |  | 0.947 | `redux_row['TRANSPARENCY_GFA']` |
+| TSNR2_BGS | float64 | Per-exposure total BGS template S/N^2 | 1641.5 | `redux_row['TSNR2_BGS']` |
+| TSNR2_ELG | float64 | Per-exposure total (summed across petals/arms) ELG template S/N^2 -- same metric as PETALQA's TSNR2_ELG_{B,R,Z} but pre-aggregated | 26.1 | `redux_row['TSNR2_ELG']` |
+| TSNR2_GPBBACKUP | float64 |  | 3889.7 | `redux_row['TSNR2_GPBBACKUP']` |
+| TSNR2_GPBBRIGHT | float64 |  | 492.9 | `redux_row['TSNR2_GPBBRIGHT']` |
+| TSNR2_GPBDARK | float64 |  | 2542.3 | `redux_row['TSNR2_GPBDARK']` |
+| TSNR2_LRG | float64 | Per-exposure total LRG template S/N^2 | 18.3 | `redux_row['TSNR2_LRG']` |
+| TSNR2_LYA | float64 | Per-exposure total LYA template S/N^2 | 14.0 | `redux_row['TSNR2_LYA']` |
+| TSNR2_QSO | float64 | Per-exposure total QSO template S/N^2 | 5.5 | `redux_row['TSNR2_QSO']` |
 
 
 ## Offline QA: `exposure_table_<night>.csv`
@@ -743,34 +788,34 @@ One row per exposure that night, including calibration frames. Field definitions
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| EXPID | int64 |  | 359483 | — |
-| OBSTYPE | str | Observation type incl. calibration frames: zero, dark, arc, flat, science (not present in exposures-daily.csv, which is science-only) | science | — |
-| TILEID | int64 |  | 31562 | — |
-| LASTSTEP | str | Closed vocabulary (desispec.workflow.exptable.get_last_step_options): ignore, skysub, stdstarfit, fluxcal, all -- how far the pipeline processed this exposure | all | `exposure_table_flags['LASTSTEP']` |
-| CAMWORD | str | Which cameras exist, compact 'a'+spectrograph-number encoding (desispec.io.util.create_camword) | a0123456789 | `exposure_table_flags['CAMWORD']` |
-| BADCAMWORD | float64 | Same encoding, cameras excluded from processing | nan | `exposure_table_flags['BADCAMWORD']` |
+| AIRMASS | float64 |  | 1.382467 | — |
 | BADAMPS | float64 | Comma-separated '{camera}{petal}{amp}' entries, e.g. 'b7D,z8A' (desispec.io.util.parse_badamps) | nan | `exposure_table_flags['BADAMPS']` |
-| EXPTIME | float64 |  | 1065.056 | — |
+| BADCAMWORD | float64 | Same encoding, cameras excluded from processing | nan | `exposure_table_flags['BADCAMWORD']` |
+| CAMWORD | str | Which cameras exist, compact 'a'+spectrograph-number encoding (desispec.io.util.create_camword) | a0123456789 | `exposure_table_flags['CAMWORD']` |
+| COMMENTS | str | Free-form human notes -- confirmed NOT used by the pipeline itself, deliberately excluded from Exposure.exposure_table_flags | \| | — |
+| EBVFAC | float64 |  | 1.1170389013777 | — |
 | EFFTIME_ETC | float64 |  | 182.517883 | — |
-| SURVEY | str |  | main | — |
+| EXPFLAG | str | Closed vocabulary (get_exposure_flags): good, extra_cal, low_flux, short_exposure, low_sn, low_speed, aborted, metadata_missing, metadata_mismatch, misconfig_cal, misconfig_petal, off_target, no_stdstars, test, corrupted, junk, bad | \| | `exposure_table_flags['EXPFLAG']` |
+| EXPID | int64 |  | 359483 | — |
+| EXPTIME | float64 |  | 1065.056 | — |
 | FA_SURV | str |  | main | — |
 | FAPRGRM | str |  | bright | — |
 | GOALTIME | float64 |  | 180.0 | — |
 | GOALTYPE | str |  | bright | — |
-| EBVFAC | float64 |  | 1.1170389013777 | — |
-| AIRMASS | float64 |  | 1.382467 | — |
-| SPEED | float64 |  | 0.3768907064783952 | — |
-| TARGTRA | float64 |  | 216.11585 | — |
-| TARGTDEC | float64 |  | -9.0164 | — |
-| SEQNUM | int64 |  | 1 | — |
-| SEQTOT | int64 |  | 1 | — |
-| PROGRAM | str |  | backup | — |
-| PURPOSE | str |  | main survey | — |
+| HEADERERR | str | 'key:->value' metadata corrections applied to this exposure's row, e.g. 'SEQTOT:->1' | \| | `exposure_table_flags['HEADERERR']` |
+| LASTSTEP | str | Closed vocabulary (desispec.workflow.exptable.get_last_step_options): ignore, skysub, stdstarfit, fluxcal, all -- how far the pipeline processed this exposure | all | `exposure_table_flags['LASTSTEP']` |
 | MJD-OBS | float64 |  | 61224.173444018 | — |
 | NIGHT | int64 |  | 20260702 | — |
-| HEADERERR | str | 'key:->value' metadata corrections applied to this exposure's row, e.g. 'SEQTOT:->1' | \| | `exposure_table_flags['HEADERERR']` |
-| EXPFLAG | str | Closed vocabulary (get_exposure_flags): good, extra_cal, low_flux, short_exposure, low_sn, low_speed, aborted, metadata_missing, metadata_mismatch, misconfig_cal, misconfig_petal, off_target, no_stdstars, test, corrupted, junk, bad | \| | `exposure_table_flags['EXPFLAG']` |
-| COMMENTS | str | Free-form human notes -- confirmed NOT used by the pipeline itself, deliberately excluded from Exposure.exposure_table_flags | \| | — |
+| OBSTYPE | str | Observation type incl. calibration frames: zero, dark, arc, flat, science (not present in exposures-daily.csv, which is science-only) | science | — |
+| PROGRAM | str |  | backup | — |
+| PURPOSE | str |  | main survey | — |
+| SEQNUM | int64 |  | 1 | — |
+| SEQTOT | int64 |  | 1 | — |
+| SPEED | float64 |  | 0.3768907064783952 | — |
+| SURVEY | str |  | main | — |
+| TARGTDEC | float64 |  | -9.0164 | — |
+| TARGTRA | float64 |  | 216.11585 | — |
+| TILEID | int64 |  | 31562 | — |
 
 
 ## Offline QA: `tiles-daily.csv`
@@ -779,27 +824,27 @@ One row per tile, **indexed by `TILEID` (not `EXPID`)**. Not surfaced by `Exposu
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| TILEID | int64 |  | 70004 | — |
-| SURVEY | str |  | cmx | — |
-| PROGRAM | str |  | other | — |
-| FAPRGRM | str |  | unknown | — |
-| FAFLAVOR | str |  | unknown | — |
-| NEXP | int64 |  | 4 | — |
-| EXPTIME | float64 |  | 3600.0 | — |
-| TILERA | float64 |  | 116.0 | — |
-| TILEDEC | float64 |  | 20.7 | — |
-| EFFTIME_ETC | float64 |  | 0.0 | — |
-| EFFTIME_SPEC | float64 |  | 3619.8 | — |
-| EFFTIME_GFA | float64 |  | 0.0 | — |
-| GOALTIME | float64 |  | 1000.0 | — |
-| OBSSTATUS | str |  | obsend | — |
-| LRG_EFFTIME_DARK | float64 |  | 3470.8 | — |
-| ELG_EFFTIME_DARK | float64 |  | 3619.8 | — |
 | BGS_EFFTIME_BRIGHT | float64 |  | 3784.0 | — |
-| LYA_EFFTIME_DARK | float64 |  | 3056.6 | — |
+| EFFTIME_ETC | float64 |  | 0.0 | — |
+| EFFTIME_GFA | float64 |  | 0.0 | — |
+| EFFTIME_SPEC | float64 |  | 3619.8 | — |
+| ELG_EFFTIME_DARK | float64 |  | 3619.8 | — |
+| EXPTIME | float64 |  | 3600.0 | — |
+| FAFLAVOR | str |  | unknown | — |
+| FAPRGRM | str |  | unknown | — |
+| GOALTIME | float64 |  | 1000.0 | — |
 | GOALTYPE | str |  | other | — |
-| MINTFRAC | float64 |  | 0.9 | — |
 | LASTNIGHT | int64 |  | 20200219 | — |
+| LRG_EFFTIME_DARK | float64 |  | 3470.8 | — |
+| LYA_EFFTIME_DARK | float64 |  | 3056.6 | — |
+| MINTFRAC | float64 |  | 0.9 | — |
+| NEXP | int64 |  | 4 | — |
+| OBSSTATUS | str |  | obsend | — |
+| PROGRAM | str |  | other | — |
+| SURVEY | str |  | cmx | — |
+| TILEDEC | float64 |  | 20.7 | — |
+| TILEID | int64 |  | 70004 | — |
+| TILERA | float64 |  | 116.0 | — |
 | UPDATED | str |  | 2025-03-18T01:39:39-0700 | — |
 
 
@@ -809,217 +854,217 @@ One row per tile, **indexed by `TILEID` (not `EXPID`)**. Not surfaced by `Exposu
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| id | integer | Exposure ID (primary key) | 359483 | `db_row['id']` |
-| data_location | text |  | /exposures/desi/20260702/00359483/desi-00359483.fits | `db_row['data_location']` |
-| thumbnail | text |  | exposures/desi/png/focus/20260702/00359483 | `db_row['thumbnail']` |
-| errors | text |  | None | `db_row['errors']` |
-| targtra | double precision |  | 216.11585 | `db_row['targtra']` |
-| targtdec | double precision |  | -9.0164 | `db_row['targtdec']` |
-| telstat | text |  | None | `db_row['telstat']` |
-| skyra | double precision | Sky-pointing RA | 216.11585 | `db_row['skyra']` |
-| skydec | double precision | Sky-pointing Dec | -9.0164 | `db_row['skydec']` |
-| reqra | double precision |  | 216.12 | `db_row['reqra']` |
-| reqdec | double precision |  | -9.006 | `db_row['reqdec']` |
-| deltara | double precision |  | None | `db_row['deltara']` |
-| deltadec | double precision |  | None | `db_row['deltadec']` |
-| reqtime | double precision |  | 1860.0 | `db_row['reqtime']` |
-| exptime | double precision | Requested exposure time (s) | 1065.056 | `db_row['exptime']` |
-| flavor | text |  | science | `db_row['flavor']` |
-| program | text | Survey program | BACKUP | `db_row['program']` |
-| lead | text |  | Luke Tyas | `db_row['lead']` |
-| propid | text |  | 2020B-5000 | `db_row['propid']` |
-| object | text |  |  | `db_row['object']` |
-| instance | text |  | desi_20260702 | `db_row['instance']` |
-| utc_dark | double precision |  | None | `db_row['utc_dark']` |
-| utc_beg | double precision |  | None | `db_row['utc_beg']` |
-| utc_end | double precision |  | None | `db_row['utc_end']` |
-| positioned | boolean |  | True | `db_row['positioned']` |
-| prepared | boolean |  | True | `db_row['prepared']` |
-| started | boolean |  | True | `db_row['started']` |
-| exposed | boolean |  | True | `db_row['exposed']` |
-| digitized | boolean |  | True | `db_row['digitized']` |
-| built | boolean |  | True | `db_row['built']` |
-| distributed | boolean |  | True | `db_row['distributed']` |
-| paused | boolean |  | False | `db_row['paused']` |
 | aborted | boolean |  | False | `db_row['aborted']` |
-| saved | boolean |  | True | `db_row['saved']` |
-| saved_updated | timestamp with time zone |  | None | `db_row['saved_updated']` |
-| discard | boolean |  | False | `db_row['discard']` |
-| aos | boolean |  | False | `db_row['aos']` |
-| seeing | double precision | Seeing estimate (source/timing vs. pmseeing/etcseeing not fully disambiguated) | 2.2975 | `db_row['seeing']` |
-| focus | ARRAY |  | [1347.3, -187.7, -1309.6, -18.4, 32.3, -32.8] | `db_row['focus']` |
-| tileid | integer | Tile ID | 31562 | `db_row['tileid']` |
-| inposition | double precision |  | None | `db_row['inposition']` |
-| positer | integer |  | None | `db_row['positer']` |
-| ntargets | integer |  | None | `db_row['ntargets']` |
-| seqid | text |  | None | `db_row['seqid']` |
-| seqnum | integer |  | 1 | `db_row['seqnum']` |
-| seqtot | integer |  | None | `db_row['seqtot']` |
-| moonangl | double precision |  | None | `db_row['moonangl']` |
-| airmass | double precision | Airmass | 1.382467 | `db_row['airmass']` |
-| mountha | double precision | Mount hour angle. Confirmed to sometimes differ from `db_row['tcs']['mount_ha']` for the same exposure (e.g. 0.204 vs. 0.383) -- distinct measurement snapshots, not interchangeable. | 15.759805 | `db_row['mountha']` |
-| zd | double precision |  | 43.719253 | `db_row['zd']` |
-| mountaz | double precision | Mount azimuth | 202.864377 | `db_row['mountaz']` |
-| domeaz | double precision |  | 208.448 | `db_row['domeaz']` |
-| st | text |  | 15:28:11.371000 | `db_row['st']` |
-| raoffset | double precision |  | None | `db_row['raoffset']` |
-| decoffset | double precision |  | None | `db_row['decoffset']` |
-| slewangl | double precision |  | 41.921 | `db_row['slewangl']` |
-| readout_time | double precision |  | None | `db_row['readout_time']` |
-| hexapod_time | double precision |  | None | `db_row['hexapod_time']` |
-| slew_time | double precision |  | None | `db_row['slew_time']` |
-| time_between_exposures | double precision |  | None | `db_row['time_between_exposures']` |
-| script | text |  | None | `db_row['script']` |
-| manifest | text |  | false | `db_row['manifest']` |
-| spectrographs | ARRAY |  | ['SP0', 'SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'SP6', 'SP7', ... | `db_row['spectrographs']` |
-| update_time | timestamp with time zone |  | 2026-07-03 04:29:53.078233+00:00 | `db_row['update_time']` |
-| frames | integer |  | 0 | `db_row['frames']` |
-| multiframe | boolean |  | False | `db_row['multiframe']` |
-| reqha | double precision |  | None | `db_row['reqha']` |
-| reqaz | double precision |  | None | `db_row['reqaz']` |
-| reqel | double precision |  | None | `db_row['reqel']` |
-| image_cameras | ARRAY |  | None | `db_row['image_cameras']` |
-| guide_cameras | ARRAY |  | ['GUIDE0', 'GUIDE2', 'GUIDE3', 'GUIDE5', 'GUIDE7', 'GUIDE8'] | `db_row['guide_cameras']` |
-| focus_cameras | ARRAY |  | ['FOCUS1', 'FOCUS4', 'FOCUS6', 'FOCUS9'] | `db_row['focus_cameras']` |
-| excluded | ARRAY |  | [] | `db_row['excluded']` |
-| fiberassign | text |  | None | `db_row['fiberassign']` |
-| s2n | double precision |  | None | `db_row['s2n']` |
-| transpar | double precision |  | None | `db_row['transpar']` |
-| skylevel | double precision |  | 1.88 | `db_row['skylevel']` |
-| zenith | boolean |  | False | `db_row['zenith']` |
-| dominpos | boolean |  | True | `db_row['dominpos']` |
-| whitespt | boolean |  | False | `db_row['whitespt']` |
-| inpos | boolean |  | True | `db_row['inpos']` |
-| inctrl | boolean |  | True | `db_row['inctrl']` |
-| mjd_obs | double precision |  | 61224.173444018 | `db_row['mjd_obs']` |
-| date_obs | timestamp with time zone | Shutter-open timestamp (timestamptz) -- primary source for Exposure.time_window | 2026-07-03 04:09:45.563203+00:00 | `db_row['date_obs']` |
-| moonra | double precision |  | 318.954513 | `db_row['moonra']` |
-| moondec | double precision |  | -17.212429 | `db_row['moondec']` |
-| guider_mode | text |  | catalog | `db_row['guider_mode']` |
-| collected | boolean |  | True | `db_row['collected']` |
-| night | integer | Observing night | 20260702 | `db_row['night']` |
-| ups | jsonb |  | {'npos': 1.0, 'status': 'System Normal - On Line(7)', 'OU... | `db_row['ups']` |
-| dome | jsonb |  | {'B29fan': 'off', 'C_floor': 19.8, 'SCR_roof': 20.8, 'pla... | `db_row['dome']` |
-| computer | jsonb |  | {'COMPDEW': -2.9, 'COMPHUM': 16.5, 'glycol_in': 4.8, 'amb... | `db_row['computer']` |
-| telescope | jsonb |  | {'air_flow': 0.0, 'air_temp': 20.262, 'wind_gust': 0, 'tr... | `db_row['telescope']` |
-| tower | jsonb |  | {'dimm': 0.0, 'gust': 11.8, 'split': 32.6, 'dewpoint': -1... | `db_row['tower']` |
-| parallactic | double precision |  | 19.698296 | `db_row['parallactic']` |
-| tcsmjd | double precision |  | 61224.173889 | `db_row['tcsmjd']` |
-| pmready | boolean |  | None | `db_row['pmready']` |
-| mntoffd | double precision |  | None | `db_row['mntoffd']` |
-| mntoffr | double precision |  | None | `db_row['mntoffr']` |
-| se_annex | boolean |  | False | `db_row['se_annex']` |
-| guidoffr | double precision |  | None | `db_row['guidoffr']` |
-| guidoffd | double precision |  | None | `db_row['guidoffd']` |
-| petals | ARRAY |  | ['PETAL0', 'PETAL1', 'PETAL2', 'PETAL3', 'PETAL4', 'PETAL... | `db_row['petals']` |
-| cal_lamps | ARRAY |  | None | `db_row['cal_lamps']` |
-| skytime | double precision |  | 60.0 | `db_row['skytime']` |
-| focstime | double precision |  | 60.0 | `db_row['focstime']` |
-| guidtime | double precision |  | 5.0 | `db_row['guidtime']` |
-| mountel | double precision | Mount elevation | 46.339571 | `db_row['mountel']` |
-| hexapod | jsonb |  | {'hex_trim': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'rot_rate': ... | `db_row['hexapod']` |
-| adc | jsonb |  | {'status': 'SUCCESS', 'adc_home1': False, 'adc_home2': Fa... | `db_row['adc']` |
-| action | text |  | None | `db_row['action']` |
-| sequence | text | Exposure sequence type (e.g. DESI) | DESI | `db_row['sequence']` |
-| observers | ARRAY |  | None | `db_row['observers']` |
-| exposing | boolean |  | False | `db_row['exposing']` |
-| done | boolean |  | True | `db_row['done']` |
-| digitizing | boolean |  | False | `db_row['digitizing']` |
-| obstype | text | Observation type | SCIENCE | `db_row['obstype']` |
-| request | jsonb |  | {'ID': 52, 'GFA': 'DESIROOT/target/catalogs/dr9/1.1.1/gfa... | `db_row['request']` |
-| callamps | jsonb |  | None | `db_row['callamps']` |
-| vccd | text |  | ON | `db_row['vccd']` |
-| ondeck | boolean |  | True | `db_row['ondeck']` |
-| split | boolean |  | None | `db_row['split']` |
-| positioning | boolean |  | False | `db_row['positioning']` |
-| purpose | text |  | Main Survey | `db_row['purpose']` |
-| vccd_on_since | timestamp with time zone |  | None | `db_row['vccd_on_since']` |
-| fvctime | double precision |  | None | `db_row['fvctime']` |
+| acqfwhm | double precision |  | 2.279347 | `db_row['acqfwhm']` |
 | acqtime | double precision |  | 15.0 | `db_row['acqtime']` |
 | acqusition_cameras | ARRAY |  | None | `db_row['acqusition_cameras']` |
-| reqteff | double precision | Requested effective time (s) | 180.0 | `db_row['reqteff']` |
-| etc | jsonb | jsonb block: ETC summary for this exposure | {'expid': 359483, 'sbprof': 'BGS', 'seeing': 2.2793, 'tra... | `db_row['etc']` |
-| ntssurvey | text |  | main | `db_row['ntssurvey']` |
-| ntsprog | text |  | BRIGHT | `db_row['ntsprog']` |
-| esttime | double precision |  | 2056.11 | `db_row['esttime']` |
-| totteff | double precision | Total accumulated effective time (ETC real-time estimate) -- confirmed distinct from redux_row['EFFTIME_SPEC'] (post-hoc pipeline measurement), different values for the same exposure | 182.0525 | `db_row['totteff']` |
-| pmseeing | double precision | Platemaker-measured seeing | 2.2975 | `db_row['pmseeing']` |
-| etctrans | double precision |  | 0.821598 | `db_row['etctrans']` |
-| etcseeing | double precision | ETC-measured seeing | 2.2793 | `db_row['etcseeing']` |
-| maxtime | double precision |  | 5400.0 | `db_row['maxtime']` |
-| etcteff | double precision |  | 182.517883 | `db_row['etcteff']` |
-| etcreal | double precision |  | 1068.442993 | `db_row['etcreal']` |
-| etcprev | double precision |  | 0.0 | `db_row['etcprev']` |
-| etcsplit | integer |  | 1 | `db_row['etcsplit']` |
-| etcprof | text |  | BGS | `db_row['etcprof']` |
-| etcthrup | double precision |  | 0.556269 | `db_row['etcthrup']` |
-| etcthrue | double precision |  | 0.589107 | `db_row['etcthrue']` |
-| etcthrub | double precision |  | 0.581015 | `db_row['etcthrub']` |
-| etcfracp | double precision |  | 0.380492 | `db_row['etcfracp']` |
-| etcfrace | double precision |  | 0.295558 | `db_row['etcfrace']` |
-| etcfracb | double precision |  | 0.134257 | `db_row['etcfracb']` |
-| etcsky | double precision |  | 1.973706 | `db_row['etcsky']` |
-| acqfwhm | double precision |  | 2.279347 | `db_row['acqfwhm']` |
-| pmtransparency | double precision |  | None | `db_row['pmtransparency']` |
-| etctransparency | double precision |  | None | `db_row['etctransparency']` |
-| moonsep | double precision |  | 100.429 | `db_row['moonsep']` |
-| slewtime | double precision |  | 112.782 | `db_row['slewtime']` |
-| startadj | timestamp without time zone |  | 2026-07-03 04:06:16.324266 | `db_row['startadj']` |
-| openshut | timestamp without time zone |  | 2026-07-03 04:09:46.164148 | `db_row['openshut']` |
-| poscycle | integer |  | 1 | `db_row['poscycle']` |
-| poscnvgd | integer |  | 604 | `db_row['poscnvgd']` |
-| posenabl | integer |  | 4340 | `db_row['posenabl']` |
-| posdosab | integer |  | None | `db_row['posdosab']` |
-| posrms | double precision | Fiber positioner RMS (real-time telemetry) -- confirmed distinct from fiberqa['FPRMS2D'] (post-hoc QA), different values for the same exposure | 0.0042 | `db_row['posrms']` |
-| turbrms | double precision | Turbulence RMS component of positioning | 0.0085 | `db_row['turbrms']` |
-| posonfrc | double precision |  | 0.9774 | `db_row['posonfrc']` |
-| poscvfrc | double precision |  | 0.1392 | `db_row['poscvfrc']` |
-| posontgt | integer |  | 4242 | `db_row['posontgt']` |
-| last_onfraction | double precision |  | None | `db_row['last_onfraction']` |
-| tcs | jsonb | jsonb block: telescope control system state | {'zd': 43.719253, 'tcsst': '15:28:12.774', 'fvc_ha': 15.8... | `db_row['tcs']` |
-| gfatime | double precision |  | None | `db_row['gfatime']` |
-| mintime | double precision |  | None | `db_row['mintime']` |
-| domshutu | boolean |  | None | `db_row['domshutu']` |
-| domshutl | boolean |  | None | `db_row['domshutl']` |
-| domlighl | boolean |  | None | `db_row['domlighl']` |
+| action | text |  | None | `db_row['action']` |
+| adc | jsonb |  | {'status': 'SUCCESS', 'adc_home1': False, 'adc_home2': Fa... | `db_row['adc']` |
+| airmass | double precision | Airmass | 1.382467 | `db_row['airmass']` |
+| aos | boolean |  | False | `db_row['aos']` |
+| astrometry | jsonb |  | {'expid': 359483, 'astro_fwhm': 2.3, 'astro_rmsx': 0.055,... | `db_row['astrometry']` |
+| built | boolean |  | True | `db_row['built']` |
+| cal_lamps | ARRAY |  | None | `db_row['cal_lamps']` |
+| callamps | jsonb |  | None | `db_row['callamps']` |
+| collected | boolean |  | True | `db_row['collected']` |
+| computer | jsonb |  | {'COMPDEW': -2.9, 'COMPHUM': 16.5, 'glycol_in': 4.8, 'amb... | `db_row['computer']` |
+| data_location | text |  | /exposures/desi/20260702/00359483/desi-00359483.fits | `db_row['data_location']` |
+| date_obs | timestamp with time zone | Shutter-open timestamp (timestamptz) -- primary source for Exposure.time_window | 2026-07-03 04:09:45.563203+00:00 | `db_row['date_obs']` |
+| decoffset | double precision |  | None | `db_row['decoffset']` |
+| deltadec | double precision |  | None | `db_row['deltadec']` |
+| deltara | double precision |  | None | `db_row['deltara']` |
+| digitized | boolean |  | True | `db_row['digitized']` |
+| digitizing | boolean |  | False | `db_row['digitizing']` |
+| discard | boolean |  | False | `db_row['discard']` |
+| distributed | boolean |  | True | `db_row['distributed']` |
+| dome | jsonb |  | {'B29fan': 'off', 'C_floor': 19.8, 'SCR_roof': 20.8, 'pla... | `db_row['dome']` |
+| domeaz | double precision |  | 208.448 | `db_row['domeaz']` |
+| dominpos | boolean |  | True | `db_row['dominpos']` |
 | domlighh | boolean |  | None | `db_row['domlighh']` |
-| pmcover | boolean |  | None | `db_row['pmcover']` |
+| domlighl | boolean |  | None | `db_row['domlighl']` |
+| domshutl | boolean |  | None | `db_row['domshutl']` |
+| domshutu | boolean |  | None | `db_row['domshutu']` |
+| done | boolean |  | True | `db_row['done']` |
+| errors | text |  | None | `db_row['errors']` |
+| esttime | double precision |  | 2056.11 | `db_row['esttime']` |
+| etc | jsonb | jsonb block: ETC summary for this exposure | {'expid': 359483, 'sbprof': 'BGS', 'seeing': 2.2793, 'tra... | `db_row['etc']` |
+| etcfracb | double precision |  | 0.134257 | `db_row['etcfracb']` |
+| etcfrace | double precision |  | 0.295558 | `db_row['etcfrace']` |
+| etcfracp | double precision |  | 0.380492 | `db_row['etcfracp']` |
+| etcprev | double precision |  | 0.0 | `db_row['etcprev']` |
+| etcprof | text |  | BGS | `db_row['etcprof']` |
+| etcreal | double precision |  | 1068.442993 | `db_row['etcreal']` |
+| etcseeing | double precision | ETC-measured seeing | 2.2793 | `db_row['etcseeing']` |
+| etcsky | double precision |  | 1.973706 | `db_row['etcsky']` |
+| etcsplit | integer |  | 1 | `db_row['etcsplit']` |
+| etcteff | double precision |  | 182.517883 | `db_row['etcteff']` |
+| etcthrub | double precision |  | 0.581015 | `db_row['etcthrub']` |
+| etcthrue | double precision |  | 0.589107 | `db_row['etcthrue']` |
+| etcthrup | double precision |  | 0.556269 | `db_row['etcthrup']` |
+| etctrans | double precision |  | 0.821598 | `db_row['etctrans']` |
+| etctransparency | double precision |  | None | `db_row['etctransparency']` |
+| excluded | ARRAY |  | [] | `db_row['excluded']` |
+| exposed | boolean |  | True | `db_row['exposed']` |
+| exposing | boolean |  | False | `db_row['exposing']` |
+| exptime | double precision | Requested exposure time (s) | 1065.056 | `db_row['exptime']` |
+| fiberassign | text |  | None | `db_row['fiberassign']` |
+| flavor | text |  | science | `db_row['flavor']` |
+| focstime | double precision |  | 60.0 | `db_row['focstime']` |
+| focus | ARRAY |  | [1347.3, -187.7, -1309.6, -18.4, 32.3, -32.8] | `db_row['focus']` |
+| focus_cameras | ARRAY |  | ['FOCUS1', 'FOCUS4', 'FOCUS6', 'FOCUS9'] | `db_row['focus_cameras']` |
+| frames | integer |  | 0 | `db_row['frames']` |
+| fvctime | double precision |  | None | `db_row['fvctime']` |
+| gfatime | double precision |  | None | `db_row['gfatime']` |
+| guide_cameras | ARRAY |  | ['GUIDE0', 'GUIDE2', 'GUIDE3', 'GUIDE5', 'GUIDE7', 'GUIDE8'] | `db_row['guide_cameras']` |
+| guider | jsonb | jsonb block: guider-related summary for this exposure | {'maxx': 0.814, 'maxy': 0.5, 'meanx': 0.319, 'meany': 0.0... | `db_row['guider']` |
+| guider_mode | text |  | catalog | `db_row['guider_mode']` |
+| guidoffd | double precision |  | None | `db_row['guidoffd']` |
+| guidoffr | double precision |  | None | `db_row['guidoffr']` |
+| guidtime | double precision |  | 5.0 | `db_row['guidtime']` |
+| gust | double precision | Wind gust -- same caveat | None | `db_row['gust']` |
+| hexapod | jsonb |  | {'hex_trim': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'rot_rate': ... | `db_row['hexapod']` |
+| hexapod_time | double precision |  | None | `db_row['hexapod_time']` |
+| id | integer | Exposure ID (primary key) | 359483 | `db_row['id']` |
+| image_cameras | ARRAY |  | None | `db_row['image_cameras']` |
+| inctrl | boolean |  | True | `db_row['inctrl']` |
+| inpos | boolean |  | True | `db_row['inpos']` |
+| inposition | double precision |  | None | `db_row['inposition']` |
+| instance | text |  | desi_20260702 | `db_row['instance']` |
+| last_onfraction | double precision |  | None | `db_row['last_onfraction']` |
+| lead | text |  | Luke Tyas | `db_row['lead']` |
+| manifest | text |  | false | `db_row['manifest']` |
+| maxtime | double precision |  | 5400.0 | `db_row['maxtime']` |
+| mintime | double precision |  | None | `db_row['mintime']` |
+| mjd_obs | double precision |  | 61224.173444018 | `db_row['mjd_obs']` |
+| mntoffd | double precision |  | None | `db_row['mntoffd']` |
+| mntoffr | double precision |  | None | `db_row['mntoffr']` |
+| moonangl | double precision |  | None | `db_row['moonangl']` |
+| moondec | double precision |  | -17.212429 | `db_row['moondec']` |
+| moonra | double precision |  | 318.954513 | `db_row['moonra']` |
+| moonsep | double precision |  | 100.429 | `db_row['moonsep']` |
+| mountaz | double precision | Mount azimuth | 202.864377 | `db_row['mountaz']` |
+| mountel | double precision | Mount elevation | 46.339571 | `db_row['mountel']` |
+| mountha | double precision | Mount hour angle. Confirmed to sometimes differ from `db_row['tcs']['mount_ha']` for the same exposure (e.g. 0.204 vs. 0.383) -- distinct measurement snapshots, not interchangeable. | 15.759805 | `db_row['mountha']` |
+| multiframe | boolean |  | False | `db_row['multiframe']` |
+| night | integer | Observing night | 20260702 | `db_row['night']` |
+| ntargets | integer |  | None | `db_row['ntargets']` |
+| ntsprog | text |  | BRIGHT | `db_row['ntsprog']` |
+| ntssurvey | text |  | main | `db_row['ntssurvey']` |
+| object | text |  |  | `db_row['object']` |
+| observers | ARRAY |  | None | `db_row['observers']` |
+| obstype | text | Observation type | SCIENCE | `db_row['obstype']` |
+| ondeck | boolean |  | True | `db_row['ondeck']` |
+| openshut | timestamp without time zone |  | 2026-07-03 04:09:46.164148 | `db_row['openshut']` |
+| parallactic | double precision |  | 19.698296 | `db_row['parallactic']` |
+| paused | boolean |  | False | `db_row['paused']` |
+| petals | ARRAY |  | ['PETAL0', 'PETAL1', 'PETAL2', 'PETAL3', 'PETAL4', 'PETAL... | `db_row['petals']` |
 | pmcool | boolean |  | None | `db_row['pmcool']` |
-| useturb | boolean |  | None | `db_row['useturb']` |
+| pmcover | boolean |  | None | `db_row['pmcover']` |
+| pmirtemp | double precision | Primary mirror temperature -- same caveat, often None in DB row even when header has it | None | `db_row['pmirtemp']` |
+| pmready | boolean |  | None | `db_row['pmready']` |
+| pmseeing | double precision | Platemaker-measured seeing | 2.2975 | `db_row['pmseeing']` |
+| pmtransparency | double precision |  | None | `db_row['pmtransparency']` |
+| poscnvgd | integer |  | 604 | `db_row['poscnvgd']` |
+| poscvfrc | double precision |  | 0.1392 | `db_row['poscvfrc']` |
+| poscycle | integer |  | 1 | `db_row['poscycle']` |
+| posdosab | integer |  | None | `db_row['posdosab']` |
+| posenabl | integer |  | 4340 | `db_row['posenabl']` |
+| positer | integer |  | None | `db_row['positer']` |
+| positioned | boolean |  | True | `db_row['positioned']` |
+| positioning | boolean |  | False | `db_row['positioning']` |
+| posonfrc | double precision |  | 0.9774 | `db_row['posonfrc']` |
+| posontgt | integer |  | 4242 | `db_row['posontgt']` |
+| posrms | double precision | Fiber positioner RMS (real-time telemetry) -- confirmed distinct from fiberqa['FPRMS2D'] (post-hoc QA), different values for the same exposure | 0.0042 | `db_row['posrms']` |
+| prepared | boolean |  | True | `db_row['prepared']` |
+| program | text | Survey program | BACKUP | `db_row['program']` |
+| propid | text |  | 2020B-5000 | `db_row['propid']` |
+| purpose | text |  | Main Survey | `db_row['purpose']` |
+| raoffset | double precision |  | None | `db_row['raoffset']` |
+| readout_time | double precision |  | None | `db_row['readout_time']` |
+| reqaz | double precision |  | None | `db_row['reqaz']` |
+| reqdec | double precision |  | -9.006 | `db_row['reqdec']` |
+| reqel | double precision |  | None | `db_row['reqel']` |
+| reqha | double precision |  | None | `db_row['reqha']` |
+| reqra | double precision |  | 216.12 | `db_row['reqra']` |
+| reqteff | double precision | Requested effective time (s) | 180.0 | `db_row['reqteff']` |
+| reqtime | double precision |  | 1860.0 | `db_row['reqtime']` |
+| request | jsonb |  | {'ID': 52, 'GFA': 'DESIROOT/target/catalogs/dr9/1.1.1/gfa... | `db_row['request']` |
 | rotenbld | boolean |  | None | `db_row['rotenbld']` |
-| rotrate | double precision | **Confirmed dead: only 1 non-null value across the entire exposure.exposure table's full history (2019-2026)** -- a known bug in the online ingestion code, not yet fixed. Use `db_row['hexapod']['rot_rate']` instead (same physical quantity, different key name -- confirmed matching the FITS header's ROTRATE for a spot-checked exposure); not universal either, since `hexapod` isn't populated for every exposure sequence. | None | `db_row['rotrate']` |
 | rotoffst | double precision | **Confirmed dead: 0 non-null values across the entire exposure.exposure table.** No known populated DB-resident substitute -- use `header.ROTOFFST` (requires opening the FITS file). | None | `db_row['rotoffst']` |
+| rotrate | double precision | **Confirmed dead: only 1 non-null value across the entire exposure.exposure table's full history (2019-2026)** -- a known bug in the online ingestion code, not yet fixed. Use `db_row['hexapod']['rot_rate']` instead (same physical quantity, different key name -- confirmed matching the FITS header's ROTRATE for a spot-checked exposure); not universal either, since `hexapod` isn't populated for every exposure sequence. | None | `db_row['rotrate']` |
+| s2n | double precision |  | None | `db_row['s2n']` |
+| saved | boolean |  | True | `db_row['saved']` |
+| saved_updated | timestamp with time zone |  | None | `db_row['saved_updated']` |
+| script | text |  | None | `db_row['script']` |
+| se_annex | boolean |  | False | `db_row['se_annex']` |
+| seeing | double precision | Seeing estimate (source/timing vs. pmseeing/etcseeing not fully disambiguated) | 2.2975 | `db_row['seeing']` |
+| seqid | text |  | None | `db_row['seqid']` |
+| seqnum | integer |  | 1 | `db_row['seqnum']` |
+| seqstart | timestamp with time zone |  | 2026-07-03 04:06:02.969682+00:00 | `db_row['seqstart']` |
+| seqtot | integer |  | None | `db_row['seqtot']` |
+| sequence | text | Exposure sequence type (e.g. DESI) | DESI | `db_row['sequence']` |
+| skydec | double precision | Sky-pointing Dec | -9.0164 | `db_row['skydec']` |
+| skylevel | double precision |  | 1.88 | `db_row['skylevel']` |
+| skyra | double precision | Sky-pointing RA | 216.11585 | `db_row['skyra']` |
+| skytime | double precision |  | 60.0 | `db_row['skytime']` |
+| slew_time | double precision |  | None | `db_row['slew_time']` |
+| slewangl | double precision |  | 41.921 | `db_row['slewangl']` |
+| slewtime | double precision |  | 112.782 | `db_row['slewtime']` |
+| spectrographs | ARRAY |  | ['SP0', 'SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'SP6', 'SP7', ... | `db_row['spectrographs']` |
+| split | boolean |  | None | `db_row['split']` |
+| st | text |  | 15:28:11.371000 | `db_row['st']` |
+| startadj | timestamp without time zone |  | 2026-07-03 04:06:16.324266 | `db_row['startadj']` |
+| started | boolean |  | True | `db_row['started']` |
+| targtdec | double precision |  | -9.0164 | `db_row['targtdec']` |
+| targtra | double precision |  | 216.11585 | `db_row['targtra']` |
+| tcs | jsonb | jsonb block: telescope control system state | {'zd': 43.719253, 'tcsst': '15:28:12.774', 'fvc_ha': 15.8... | `db_row['tcs']` |
+| tcsmjd | double precision |  | 61224.173889 | `db_row['tcsmjd']` |
+| telescope | jsonb |  | {'air_flow': 0.0, 'air_temp': 20.262, 'wind_gust': 0, 'tr... | `db_row['telescope']` |
+| telstat | text |  | None | `db_row['telstat']` |
+| thumbnail | text |  | exposures/desi/png/focus/20260702/00359483 | `db_row['thumbnail']` |
+| tileid | integer | Tile ID | 31562 | `db_row['tileid']` |
+| time_between_exposures | double precision |  | None | `db_row['time_between_exposures']` |
+| totteff | double precision | Total accumulated effective time (ETC real-time estimate) -- confirmed distinct from redux_row['EFFTIME_SPEC'] (post-hoc pipeline measurement), different values for the same exposure | 182.0525 | `db_row['totteff']` |
+| tower | jsonb |  | {'dimm': 0.0, 'gust': 11.8, 'split': 32.6, 'dewpoint': -1... | `db_row['tower']` |
+| transpar | double precision |  | None | `db_row['transpar']` |
+| turbrms | double precision | Turbulence RMS component of positioning | 0.0085 | `db_row['turbrms']` |
+| update_time | timestamp with time zone |  | 2026-07-03 04:29:53.078233+00:00 | `db_row['update_time']` |
+| ups | jsonb |  | {'npos': 1.0, 'status': 'System Normal - On Line(7)', 'OU... | `db_row['ups']` |
+| useturb | boolean |  | None | `db_row['useturb']` |
+| utc_beg | double precision |  | None | `db_row['utc_beg']` |
+| utc_dark | double precision |  | None | `db_row['utc_dark']` |
+| utc_end | double precision |  | None | `db_row['utc_end']` |
+| vccd | text |  | ON | `db_row['vccd']` |
+| vccd_on_since | timestamp with time zone |  | None | `db_row['vccd_on_since']` |
+| whitespt | boolean |  | False | `db_row['whitespt']` |
 | winddir | double precision | Wind direction -- often None/unpopulated even when the FITS header has a value; prefer header for this field | None | `db_row['winddir']` |
 | windspd | double precision | Wind speed -- same caveat as winddir | None | `db_row['windspd']` |
-| gust | double precision | Wind gust -- same caveat | None | `db_row['gust']` |
-| pmirtemp | double precision | Primary mirror temperature -- same caveat, often None in DB row even when header has it | None | `db_row['pmirtemp']` |
-| seqstart | timestamp with time zone |  | 2026-07-03 04:06:02.969682+00:00 | `db_row['seqstart']` |
-| astrometry | jsonb |  | {'expid': 359483, 'astro_fwhm': 2.3, 'astro_rmsx': 0.055,... | `db_row['astrometry']` |
-| guider | jsonb | jsonb block: guider-related summary for this exposure | {'maxx': 0.814, 'maxy': 0.5, 'meanx': 0.319, 'meany': 0.0... | `db_row['guider']` |
+| zd | double precision |  | 43.719253 | `db_row['zd']` |
+| zenith | boolean |  | False | `db_row['zenith']` |
 
 
 ## Database: `exposure.stars`
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| star_id | integer |  |  | `stars['star_id']` (per-star table) |
-| expid | integer |  |  | `stars['expid']` (per-star table) |
-| ra | double precision |  |  | `stars['ra']` (per-star table) |
 | dec | double precision |  |  | `stars['dec']` (per-star table) |
-| mag | double precision |  |  | `stars['mag']` (per-star table) |
+| expid | integer |  |  | `stars['expid']` (per-star table) |
 | gfaid | integer |  |  | `stars['gfaid']` (per-star table) |
+| mag | double precision |  |  | `stars['mag']` (per-star table) |
 | objtype | text |  |  | `stars['objtype']` (per-star table) |
 | okguide | boolean |  |  | `stars['okguide']` (per-star table) |
+| ra | double precision |  |  | `stars['ra']` (per-star table) |
+| star_id | integer |  |  | `stars['star_id']` (per-star table) |
 
 
 ## Database: `exposure.comments`
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| id | integer |  |  | `comments['id']` (per-comment table) |
-| exposure_id | integer |  |  | `comments['exposure_id']` (per-comment table) |
-| date | timestamp with time zone |  |  | `comments['date']` (per-comment table) |
 | comment_text | text |  |  | `comments['comment_text']` (per-comment table) |
+| date | timestamp with time zone |  |  | `comments['date']` (per-comment table) |
+| exposure_id | integer |  |  | `comments['exposure_id']` (per-comment table) |
+| id | integer |  |  | `comments['id']` (per-comment table) |
 
 
 ## Database: `exposure.positions`
@@ -1028,16 +1073,16 @@ Not surfaced by an `Exposure` accessor -- query `exposure.positions` directly vi
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| position_id | integer |  |  | — |
 | expid | integer |  |  | — |
+| format | text |  |  | — |
+| inpos | boolean |  |  | — |
 | iteration | integer |  |  | — |
 | pid | integer |  |  | — |
+| position_id | integer |  |  | — |
 | type | text |  |  | — |
-| format | text |  |  | — |
+| update_time | timestamp with time zone |  |  | — |
 | x | double precision |  |  | — |
 | y | double precision |  |  | — |
-| inpos | boolean |  |  | — |
-| update_time | timestamp with time zone |  |  | — |
 
 
 ## Database: `exposure.headers`
@@ -1057,16 +1102,11 @@ Per-frame table -- one row per guider frame. `exp.guider_centroids` selects a fi
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| guider_centroids | integer |  | 4396919 | — |
 | combined_x | double precision | Combined guiding correction, X (arcsec or similar) | 0.7203623253644624 | `guider_centroids['combined_x']` |
 | combined_y | double precision | Combined guiding correction, Y | 0.7453352122020355 | `guider_centroids['combined_y']` |
-| time_recorded | timestamp with time zone | DB insert timestamp | 2026-07-15 11:31:40.947337+00:00 | `guider_centroids['time_recorded']` |
 | dos_instance | text |  | desi_20260714 | — |
-| row_status | text |  | M | — |
-| row_status_time | timestamp with time zone |  | 2026-07-15 11:31:40.948195+00:00 | — |
-| row_status_user | text |  | desi_writer | — |
-| seeing | double precision | Per-frame seeing estimate | 1.0448253242182666 | `guider_centroids['seeing']` |
-| nstars | integer | Number of guide stars used this frame | 11 | `guider_centroids['nstars']` |
+| expid | integer | Exposure ID | 361286 | — |
+| frame | integer | Guider frame number within the exposure (1-indexed) | 111 | `guider_centroids['frame']` |
 | guide0_0 | jsonb |  | {'sn': 113.32468069047451, 'fit': 0.17543654525638538, 'f... | — |
 | guide0_1 | jsonb |  | {'sn': 7.615476538277707, 'fit': None, 'fwhm': None, 'ali... | — |
 | guide2_0 | jsonb |  | {'sn': 31.069851787128904, 'fit': 3.147847868950959, 'fwh... | — |
@@ -1079,16 +1119,21 @@ Per-frame table -- one row per guider frame. `exp.guider_centroids` selects a fi
 | guide7_1 | jsonb |  | {'sn': 11.023032476912562, 'fit': None, 'fwhm': None, 'al... | — |
 | guide8_0 | jsonb |  | {'sn': 96.56792110743447, 'fit': 0.039098040618436775, 'f... | — |
 | guide8_1 | jsonb |  | {'sn': 5.321525828444858, 'fit': None, 'fwhm': None, 'ali... | — |
-| pixel_scale | double precision | Plate scale (arcsec/pixel) | 0.205 | — |
-| tcs_correction_ra | double precision | RA correction sent to TCS this frame | 0.14169526939918978 | `guider_centroids['tcs_correction_ra']` |
-| tcs_correction_dec | double precision | Dec correction sent to TCS this frame | 0.15898000076269417 | `guider_centroids['tcs_correction_dec']` |
+| guider_centroids | integer |  | 4396919 | — |
 | guiding | integer | Whether active guiding was engaged this frame | 1 | — |
-| send_guide_corrections | integer | Whether corrections were actually sent to the TCS | 1 | — |
-| expid | integer | Exposure ID | 361286 | — |
-| rotation | double precision | Field rotation estimate | -2.34187 | `guider_centroids['rotation']` |
-| frame | integer | Guider frame number within the exposure (1-indexed) | 111 | `guider_centroids['frame']` |
 | ngfas | integer | Number of GFA cameras contributing this frame | 6 | `guider_centroids['ngfas']` |
+| nstars | integer | Number of guide stars used this frame | 11 | `guider_centroids['nstars']` |
 | obstime | timestamp with time zone | Guider frame observation timestamp | 2026-07-15 11:31:32.265141+00:00 | `guider_centroids['obstime']` |
+| pixel_scale | double precision | Plate scale (arcsec/pixel) | 0.205 | — |
+| rotation | double precision | Field rotation estimate | -2.34187 | `guider_centroids['rotation']` |
+| row_status | text |  | M | — |
+| row_status_time | timestamp with time zone |  | 2026-07-15 11:31:40.948195+00:00 | — |
+| row_status_user | text |  | desi_writer | — |
+| seeing | double precision | Per-frame seeing estimate | 1.0448253242182666 | `guider_centroids['seeing']` |
+| send_guide_corrections | integer | Whether corrections were actually sent to the TCS | 1 | — |
+| tcs_correction_dec | double precision | Dec correction sent to TCS this frame | 0.15898000076269417 | `guider_centroids['tcs_correction_dec']` |
+| tcs_correction_ra | double precision | RA correction sent to TCS this frame | 0.14169526939918978 | `guider_centroids['tcs_correction_ra']` |
+| time_recorded | timestamp with time zone | DB insert timestamp | 2026-07-15 11:31:40.947337+00:00 | `guider_centroids['time_recorded']` |
 
 
 ## Database: `telemetry.environmentmonitor_telescope`
@@ -1097,81 +1142,81 @@ Time-windowed telemetry -- reach any column with `exp.telemetry('environmentmoni
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| environmentmonitor_telescope | integer |  | 37521803 | `exp.telemetry('environmentmonitor_telescope', columns=['environmentmonitor_telescope'])` |
-| telescope_timestamp | text |  | 2026-07-17 17:23:32 | `exp.telemetry('environmentmonitor_telescope', columns=['telescope_timestamp'])` |
-| mirror_avg_temp | double precision | Average mirror temperature across sensors | 18.928 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_avg_temp'])` |
-| mirror_desired_temp | double precision | Mirror thermal control setpoint | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_desired_temp'])` |
-| servo_setpoint | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['servo_setpoint'])` |
-| air_temp | double precision | Air temperature at telescope | 18.725 | `exp.telemetry('environmentmonitor_telescope', columns=['air_temp'])` |
 | air_dewpoint | double precision |  | 13.267 | `exp.telemetry('environmentmonitor_telescope', columns=['air_dewpoint'])` |
 | air_flow | double precision |  | 4.395 | `exp.telemetry('environmentmonitor_telescope', columns=['air_flow'])` |
+| air_in_temp | double precision |  | 19.9 | `exp.telemetry('environmentmonitor_telescope', columns=['air_in_temp'])` |
+| air_out_temp | double precision |  | 18.6 | `exp.telemetry('environmentmonitor_telescope', columns=['air_out_temp'])` |
+| air_temp | double precision | Air temperature at telescope | 18.725 | `exp.telemetry('environmentmonitor_telescope', columns=['air_temp'])` |
+| between_twilight | integer | Whether this record falls between evening/morning twilight | 0 | `exp.telemetry('environmentmonitor_telescope', columns=['between_twilight'])` |
+| casscage_i_temp | double precision |  | 6.6 | `exp.telemetry('environmentmonitor_telescope', columns=['casscage_i_temp'])` |
+| casscage_o_temp | double precision |  | 19.8 | `exp.telemetry('environmentmonitor_telescope', columns=['casscage_o_temp'])` |
+| centersection_i_temp | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['centersection_i_temp'])` |
+| centersection_o_temp | double precision |  | 19.4 | `exp.telemetry('environmentmonitor_telescope', columns=['centersection_o_temp'])` |
+| chimney_ib_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_ib_temp'])` |
+| chimney_im_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_im_temp'])` |
+| chimney_it_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_it_temp'])` |
+| chimney_os_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_os_temp'])` |
+| chimney_ow_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_ow_temp'])` |
+| decbore_temp | double precision |  | 11.5 | `exp.telemetry('environmentmonitor_telescope', columns=['decbore_temp'])` |
+| dos_instance | text |  | extern | `exp.telemetry('environmentmonitor_telescope', columns=['dos_instance'])` |
+| environmentmonitor_telescope | integer |  | 37521803 | `exp.telemetry('environmentmonitor_telescope', columns=['environmentmonitor_telescope'])` |
+| flowrate_in | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['flowrate_in'])` |
+| flowrate_out | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['flowrate_out'])` |
+| glycol_in_temp | double precision |  | 7.4 | `exp.telemetry('environmentmonitor_telescope', columns=['glycol_in_temp'])` |
+| glycol_out_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['glycol_out_temp'])` |
+| hinge_s_temp | double precision |  | 19.8 | `exp.telemetry('environmentmonitor_telescope', columns=['hinge_s_temp'])` |
+| hinge_w_temp | double precision |  | 22.3 | `exp.telemetry('environmentmonitor_telescope', columns=['hinge_w_temp'])` |
+| mirror_avg_temp | double precision | Average mirror temperature across sensors | 18.928 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_avg_temp'])` |
+| mirror_cooling | integer |  | 1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_cooling'])` |
+| mirror_desired_temp | double precision | Mirror thermal control setpoint | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_desired_temp'])` |
+| mirror_eib_temp | double precision |  | 19.4 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eib_temp'])` |
+| mirror_eit_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eit_temp'])` |
+| mirror_eob_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eob_temp'])` |
+| mirror_eot_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eot_temp'])` |
+| mirror_nib_temp | double precision |  | 19.13 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_nib_temp'])` |
+| mirror_nit_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_nit_temp'])` |
+| mirror_nob_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_nob_temp'])` |
+| mirror_not_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_not_temp'])` |
+| mirror_rtd_temp | double precision |  | 19.13 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_rtd_temp'])` |
+| mirror_sib_temp | double precision |  | 19.3 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sib_temp'])` |
+| mirror_sit_temp | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sit_temp'])` |
+| mirror_sob_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sob_temp'])` |
+| mirror_sot_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sot_temp'])` |
+| mirror_status | text |  | soft air | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_status'])` |
+| mirror_temp | double precision | Primary mirror temperature | 18.95 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_temp'])` |
+| mirror_wib_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wib_temp'])` |
+| mirror_wit_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wit_temp'])` |
+| mirror_wob_temp | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wob_temp'])` |
+| mirror_wot_temp | double precision |  | 18.8 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wot_temp'])` |
+| primarycell_i_temp | double precision |  | 19.3 | `exp.telemetry('environmentmonitor_telescope', columns=['primarycell_i_temp'])` |
+| primarycell_o_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['primarycell_o_temp'])` |
 | probe1_humidity | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['probe1_humidity'])` |
 | probe1_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['probe1_temp'])` |
 | probe2_humidity | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['probe2_humidity'])` |
 | probe2_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['probe2_temp'])` |
-| flowrate_in | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['flowrate_in'])` |
-| flowrate_out | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['flowrate_out'])` |
-| mirror_rtd_temp | double precision |  | 19.13 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_rtd_temp'])` |
-| mirror_nib_temp | double precision |  | 19.13 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_nib_temp'])` |
-| mirror_eib_temp | double precision |  | 19.4 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eib_temp'])` |
-| mirror_sib_temp | double precision |  | 19.3 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sib_temp'])` |
-| mirror_wib_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wib_temp'])` |
-| mirror_nob_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_nob_temp'])` |
-| mirror_eob_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eob_temp'])` |
-| mirror_sob_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sob_temp'])` |
-| mirror_wob_temp | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wob_temp'])` |
-| mirror_nit_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_nit_temp'])` |
-| mirror_eit_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eit_temp'])` |
-| mirror_sit_temp | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sit_temp'])` |
-| mirror_wit_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wit_temp'])` |
-| mirror_not_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_not_temp'])` |
-| mirror_eot_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_eot_temp'])` |
-| mirror_sot_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_sot_temp'])` |
-| mirror_wot_temp | double precision |  | 18.8 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_wot_temp'])` |
-| glycol_in_temp | double precision |  | 7.4 | `exp.telemetry('environmentmonitor_telescope', columns=['glycol_in_temp'])` |
-| glycol_out_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['glycol_out_temp'])` |
-| air_in_temp | double precision |  | 19.9 | `exp.telemetry('environmentmonitor_telescope', columns=['air_in_temp'])` |
-| air_out_temp | double precision |  | 18.6 | `exp.telemetry('environmentmonitor_telescope', columns=['air_out_temp'])` |
-| truss_ntt_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_ntt_temp'])` |
-| truss_ett_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_ett_temp'])` |
-| truss_stt_temp | double precision |  | 19.5 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_stt_temp'])` |
-| truss_wtt_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_wtt_temp'])` |
-| truss_ntb_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_ntb_temp'])` |
-| truss_etb_temp | double precision |  | 8.7 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_etb_temp'])` |
-| truss_stb_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_stb_temp'])` |
-| truss_wtb_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_wtb_temp'])` |
-| truss_sts_temp | double precision |  | 10.8 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_sts_temp'])` |
-| truss_tsb_temp | double precision |  | 20.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_tsb_temp'])` |
-| truss_tsm_temp | double precision |  | 20.0 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_tsm_temp'])` |
-| truss_tst_temp | double precision |  | 19.8 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_tst_temp'])` |
-| topring_s_temp | double precision |  | 19.7 | `exp.telemetry('environmentmonitor_telescope', columns=['topring_s_temp'])` |
-| topring_w_temp | double precision |  | 19.6 | `exp.telemetry('environmentmonitor_telescope', columns=['topring_w_temp'])` |
-| hinge_s_temp | double precision |  | 19.8 | `exp.telemetry('environmentmonitor_telescope', columns=['hinge_s_temp'])` |
-| hinge_w_temp | double precision |  | 22.3 | `exp.telemetry('environmentmonitor_telescope', columns=['hinge_w_temp'])` |
-| chimney_os_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_os_temp'])` |
-| chimney_ow_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_ow_temp'])` |
-| chimney_ib_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_ib_temp'])` |
-| chimney_im_temp | double precision |  | 0.0 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_im_temp'])` |
-| chimney_it_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['chimney_it_temp'])` |
-| centersection_i_temp | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['centersection_i_temp'])` |
-| centersection_o_temp | double precision |  | 19.4 | `exp.telemetry('environmentmonitor_telescope', columns=['centersection_o_temp'])` |
-| primarycell_i_temp | double precision |  | 19.3 | `exp.telemetry('environmentmonitor_telescope', columns=['primarycell_i_temp'])` |
-| primarycell_o_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['primarycell_o_temp'])` |
-| casscage_i_temp | double precision |  | 6.6 | `exp.telemetry('environmentmonitor_telescope', columns=['casscage_i_temp'])` |
-| casscage_o_temp | double precision |  | 19.8 | `exp.telemetry('environmentmonitor_telescope', columns=['casscage_o_temp'])` |
-| decbore_temp | double precision |  | 11.5 | `exp.telemetry('environmentmonitor_telescope', columns=['decbore_temp'])` |
-| mirror_status | text |  | soft air | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_status'])` |
-| time_recorded | timestamp with time zone | Telemetry timestamp (timestamptz) -- the time_column used by query_nearest/query_window | 2026-07-17 17:23:23.149755+00:00 | `exp.telemetry('environmentmonitor_telescope', columns=['time_recorded'])` |
-| dos_instance | text |  | extern | `exp.telemetry('environmentmonitor_telescope', columns=['dos_instance'])` |
 | row_status | text |  | M | `exp.telemetry('environmentmonitor_telescope', columns=['row_status'])` |
 | row_status_time | timestamp with time zone |  | 2026-07-17 17:23:23.155315+00:00 | `exp.telemetry('environmentmonitor_telescope', columns=['row_status_time'])` |
 | row_status_user | text |  | desi_writer | `exp.telemetry('environmentmonitor_telescope', columns=['row_status_user'])` |
-| mirror_temp | double precision | Primary mirror temperature | 18.95 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_temp'])` |
+| servo_setpoint | double precision |  | 19.0 | `exp.telemetry('environmentmonitor_telescope', columns=['servo_setpoint'])` |
+| telescope_timestamp | text |  | 2026-07-17 17:23:32 | `exp.telemetry('environmentmonitor_telescope', columns=['telescope_timestamp'])` |
+| time_recorded | timestamp with time zone | Telemetry timestamp (timestamptz) -- the time_column used by query_nearest/query_window | 2026-07-17 17:23:23.149755+00:00 | `exp.telemetry('environmentmonitor_telescope', columns=['time_recorded'])` |
+| topring_s_temp | double precision |  | 19.7 | `exp.telemetry('environmentmonitor_telescope', columns=['topring_s_temp'])` |
+| topring_w_temp | double precision |  | 19.6 | `exp.telemetry('environmentmonitor_telescope', columns=['topring_w_temp'])` |
+| truss_etb_temp | double precision |  | 8.7 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_etb_temp'])` |
+| truss_ett_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_ett_temp'])` |
+| truss_ntb_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_ntb_temp'])` |
+| truss_ntt_temp | double precision |  | 19.2 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_ntt_temp'])` |
+| truss_stb_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_stb_temp'])` |
+| truss_sts_temp | double precision |  | 10.8 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_sts_temp'])` |
+| truss_stt_temp | double precision |  | 19.5 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_stt_temp'])` |
 | truss_temp | double precision |  | 19.967 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_temp'])` |
-| mirror_cooling | integer |  | 1 | `exp.telemetry('environmentmonitor_telescope', columns=['mirror_cooling'])` |
+| truss_tsb_temp | double precision |  | 20.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_tsb_temp'])` |
+| truss_tsm_temp | double precision |  | 20.0 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_tsm_temp'])` |
+| truss_tst_temp | double precision |  | 19.8 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_tst_temp'])` |
+| truss_wtb_temp | double precision |  | 18.9 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_wtb_temp'])` |
+| truss_wtt_temp | double precision |  | 19.1 | `exp.telemetry('environmentmonitor_telescope', columns=['truss_wtt_temp'])` |
 | wind_gust | integer | Wind-gust event flag/count | 0 | `exp.telemetry('environmentmonitor_telescope', columns=['wind_gust'])` |
 | wind_shake | integer | Wind-shake event flag/count | 0 | `exp.telemetry('environmentmonitor_telescope', columns=['wind_shake'])` |
-| between_twilight | integer | Whether this record falls between evening/morning twilight | 0 | `exp.telemetry('environmentmonitor_telescope', columns=['between_twilight'])` |
 
 
 ## Database: `telemetry.environmentmonitor_tower`
@@ -1180,24 +1225,24 @@ Time-windowed telemetry -- reach any column with `exp.telemetry('environmentmoni
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
+| between_twilight | integer |  | 0 | `exp.telemetry('environmentmonitor_tower', columns=['between_twilight'])` |
+| dewpoint | double precision |  | 15.6 | `exp.telemetry('environmentmonitor_tower', columns=['dewpoint'])` |
+| dimm | double precision |  | 1.7369 | `exp.telemetry('environmentmonitor_tower', columns=['dimm'])` |
+| dimm_timestamp | text |  | 2026-07-11 06:22:11 | `exp.telemetry('environmentmonitor_tower', columns=['dimm_timestamp'])` |
+| dos_instance | text |  | extern | `exp.telemetry('environmentmonitor_tower', columns=['dos_instance'])` |
 | environmentmonitor_tower | integer |  | 37521765 | `exp.telemetry('environmentmonitor_tower', columns=['environmentmonitor_tower'])` |
-| tower_timestamp | text | Tower-side timestamp (text, distinct format from time_recorded) | 2026-07-17 17:21:08 | `exp.telemetry('environmentmonitor_tower', columns=['tower_timestamp'])` |
-| wind_speed | double precision | Wind speed at the tower anemometer | 1.1 | `exp.telemetry('environmentmonitor_tower', columns=['wind_speed'])` |
-| wind_direction | double precision | Wind direction | 159.7 | `exp.telemetry('environmentmonitor_tower', columns=['wind_direction'])` |
+| gust | double precision | Gust speed | 1.9 | `exp.telemetry('environmentmonitor_tower', columns=['gust'])` |
 | humidity | double precision |  | 93.7 | `exp.telemetry('environmentmonitor_tower', columns=['humidity'])` |
 | pressure | double precision |  | 796.9 | `exp.telemetry('environmentmonitor_tower', columns=['pressure'])` |
-| temperature | double precision |  | 16.6 | `exp.telemetry('environmentmonitor_tower', columns=['temperature'])` |
-| dewpoint | double precision |  | 15.6 | `exp.telemetry('environmentmonitor_tower', columns=['dewpoint'])` |
-| split | double precision |  | 1.0 | `exp.telemetry('environmentmonitor_tower', columns=['split'])` |
-| gust | double precision | Gust speed | 1.9 | `exp.telemetry('environmentmonitor_tower', columns=['gust'])` |
-| time_recorded | timestamp with time zone | Telemetry timestamp (timestamptz) -- used for nearest/window queries | 2026-07-17 17:23:23.784262+00:00 | `exp.telemetry('environmentmonitor_tower', columns=['time_recorded'])` |
-| dos_instance | text |  | extern | `exp.telemetry('environmentmonitor_tower', columns=['dos_instance'])` |
 | row_status | text |  | M | `exp.telemetry('environmentmonitor_tower', columns=['row_status'])` |
 | row_status_time | timestamp with time zone |  | 2026-07-17 17:23:23.787637+00:00 | `exp.telemetry('environmentmonitor_tower', columns=['row_status_time'])` |
 | row_status_user | text |  | desi_writer | `exp.telemetry('environmentmonitor_tower', columns=['row_status_user'])` |
-| dimm | double precision |  | 1.7369 | `exp.telemetry('environmentmonitor_tower', columns=['dimm'])` |
-| dimm_timestamp | text |  | 2026-07-11 06:22:11 | `exp.telemetry('environmentmonitor_tower', columns=['dimm_timestamp'])` |
-| between_twilight | integer |  | 0 | `exp.telemetry('environmentmonitor_tower', columns=['between_twilight'])` |
+| split | double precision |  | 1.0 | `exp.telemetry('environmentmonitor_tower', columns=['split'])` |
+| temperature | double precision |  | 16.6 | `exp.telemetry('environmentmonitor_tower', columns=['temperature'])` |
+| time_recorded | timestamp with time zone | Telemetry timestamp (timestamptz) -- used for nearest/window queries | 2026-07-17 17:23:23.784262+00:00 | `exp.telemetry('environmentmonitor_tower', columns=['time_recorded'])` |
+| tower_timestamp | text | Tower-side timestamp (text, distinct format from time_recorded) | 2026-07-17 17:21:08 | `exp.telemetry('environmentmonitor_tower', columns=['tower_timestamp'])` |
+| wind_direction | double precision | Wind direction | 159.7 | `exp.telemetry('environmentmonitor_tower', columns=['wind_direction'])` |
+| wind_speed | double precision | Wind speed at the tower anemometer | 1.1 | `exp.telemetry('environmentmonitor_tower', columns=['wind_speed'])` |
 
 
 ## Database: `telemetry.environmentmonitor_dust`
@@ -1206,37 +1251,37 @@ Time-windowed telemetry -- reach any column with `exp.telemetry('environmentmoni
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| environmentmonitor_dust | integer |  | 3904989 | `exp.telemetry('environmentmonitor_dust', columns=['environmentmonitor_dust'])` |
-| mayall_particle_1_timestamp | text | Per-sensor text timestamp -- prefer time_recorded for consistency across telemetry tables | 2025-10-01 16:27:31 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_timestamp'])` |
-| mayall_particle_1_micron_pt3 | integer |  | 6463 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_pt3'])` |
-| mayall_particle_1_micron_pt5 | integer |  | 988 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_pt5'])` |
-| mayall_particle_1_micron_5 | integer | Mayall dust sensor 1, particle count >=5 micron. Table only has data from 2025-10-21 onward -- always pass max_delta_seconds when querying older exposures | 18 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_5'])` |
-| mayall_particle_1_micron_10 | integer |  | 7 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_10'])` |
-| mayall_particle_1_background_light | integer |  | 249 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_background_light'])` |
-| wiyn_particle_1_timestamp | text |  | 2026-07-17 17:22:08 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_timestamp'])` |
-| wiyn_particle_1_micron_pt3 | integer |  | 15705 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_pt3'])` |
-| wiyn_particle_1_micron_pt5 | integer |  | 1192 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_pt5'])` |
-| wiyn_particle_1_micron_5 | integer |  | 1 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_5'])` |
-| wiyn_particle_1_micron_10 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_10'])` |
-| wiyn_particle_1_background_light | integer |  | 4248 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_background_light'])` |
-| wiyn_particle_2_timestamp | text |  | 2026-07-17 17:22:06 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_timestamp'])` |
-| wiyn_particle_2_micron_pt3 | integer |  | 9900 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_pt3'])` |
-| wiyn_particle_2_micron_pt5 | integer |  | 859 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_pt5'])` |
-| wiyn_particle_2_micron_5 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_5'])` |
-| wiyn_particle_2_micron_10 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_10'])` |
-| wiyn_particle_2_background_light | integer |  | 1757 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_background_light'])` |
-| time_recorded | timestamp with time zone | Telemetry timestamp (timestamptz) | 2026-07-17 17:23:22.481548+00:00 | `exp.telemetry('environmentmonitor_dust', columns=['time_recorded'])` |
 | between_twilight | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['between_twilight'])` |
 | dos_instance | text |  | extern | `exp.telemetry('environmentmonitor_dust', columns=['dos_instance'])` |
+| environmentmonitor_dust | integer |  | 3904989 | `exp.telemetry('environmentmonitor_dust', columns=['environmentmonitor_dust'])` |
+| mayall_particle_1_background_light | integer |  | 249 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_background_light'])` |
+| mayall_particle_1_micron_10 | integer |  | 7 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_10'])` |
+| mayall_particle_1_micron_5 | integer | Mayall dust sensor 1, particle count >=5 micron. Table only has data from 2025-10-21 onward -- always pass max_delta_seconds when querying older exposures | 18 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_5'])` |
+| mayall_particle_1_micron_pt3 | integer |  | 6463 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_pt3'])` |
+| mayall_particle_1_micron_pt5 | integer |  | 988 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_micron_pt5'])` |
+| mayall_particle_1_timestamp | text | Per-sensor text timestamp -- prefer time_recorded for consistency across telemetry tables | 2025-10-01 16:27:31 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_1_timestamp'])` |
+| mayall_particle_2_background_light | integer |  | 8467 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_background_light'])` |
+| mayall_particle_2_micron_10 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_10'])` |
+| mayall_particle_2_micron_5 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_5'])` |
+| mayall_particle_2_micron_pt3 | integer |  | 1132230 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_pt3'])` |
+| mayall_particle_2_micron_pt5 | integer |  | 249 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_pt5'])` |
+| mayall_particle_2_timestamp | text |  | 2026-07-17 17:22:13 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_timestamp'])` |
 | row_status | text |  | M | `exp.telemetry('environmentmonitor_dust', columns=['row_status'])` |
 | row_status_time | timestamp with time zone |  | 2026-07-17 17:23:22.485406+00:00 | `exp.telemetry('environmentmonitor_dust', columns=['row_status_time'])` |
 | row_status_user | text |  | desi_writer | `exp.telemetry('environmentmonitor_dust', columns=['row_status_user'])` |
-| mayall_particle_2_timestamp | text |  | 2026-07-17 17:22:13 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_timestamp'])` |
-| mayall_particle_2_micron_pt3 | integer |  | 1132230 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_pt3'])` |
-| mayall_particle_2_micron_pt5 | integer |  | 249 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_pt5'])` |
-| mayall_particle_2_micron_5 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_5'])` |
-| mayall_particle_2_micron_10 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_micron_10'])` |
-| mayall_particle_2_background_light | integer |  | 8467 | `exp.telemetry('environmentmonitor_dust', columns=['mayall_particle_2_background_light'])` |
+| time_recorded | timestamp with time zone | Telemetry timestamp (timestamptz) | 2026-07-17 17:23:22.481548+00:00 | `exp.telemetry('environmentmonitor_dust', columns=['time_recorded'])` |
+| wiyn_particle_1_background_light | integer |  | 4248 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_background_light'])` |
+| wiyn_particle_1_micron_10 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_10'])` |
+| wiyn_particle_1_micron_5 | integer |  | 1 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_5'])` |
+| wiyn_particle_1_micron_pt3 | integer |  | 15705 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_pt3'])` |
+| wiyn_particle_1_micron_pt5 | integer |  | 1192 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_micron_pt5'])` |
+| wiyn_particle_1_timestamp | text |  | 2026-07-17 17:22:08 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_1_timestamp'])` |
+| wiyn_particle_2_background_light | integer |  | 1757 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_background_light'])` |
+| wiyn_particle_2_micron_10 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_10'])` |
+| wiyn_particle_2_micron_5 | integer |  | 0 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_5'])` |
+| wiyn_particle_2_micron_pt3 | integer |  | 9900 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_pt3'])` |
+| wiyn_particle_2_micron_pt5 | integer |  | 859 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_micron_pt5'])` |
+| wiyn_particle_2_timestamp | text |  | 2026-07-17 17:22:06 | `exp.telemetry('environmentmonitor_dust', columns=['wiyn_particle_2_timestamp'])` |
 
 
 *(93 tables total in the `telemetry` schema -- only the ones this project actually queries are listed here. To inspect another: `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='telemetry' AND table_name='...'` via `telemetry_mining.db.fetch_all`.)*
@@ -1257,17 +1302,17 @@ deliberately omitted — pass `columns=` to include them.
 
 | Field | Type | Description | In `exp.alarms()` default? |
 |---|---|---|---|
-| id | integer | Auto-increment primary key (`nextval('alarms_id_seq')`) | ✅ |
-| time_recorded | timestamp with time zone | When the alarm was recorded — the time-window key (indexed) | ✅ |
-| level | text | Severity: `CRITICAL` / `ALERT` / `WARNING` / `EVENT` (enforced by `alarms_level_check`) | ✅ |
-| component | text | Subsystem/component that raised the alarm | ✅ |
-| instance | text | DOS instance that raised it (nullable) | ✅ |
-| message | text | Human-readable alarm message | ✅ |
-| alarm_id | integer | Alarm-type identifier (nullable) — distinct from the row `id` | ⬜ `columns=[…, 'alarm_id']` |
-| sve_enabled, logbook, twitter, tcs, ocs, stop_exposure_loop, email_enabled, shutdown_gfa, shutdown_petalcontroller, slack | boolean | Alarm-handler **routing flags** — which handler this alarm triggers (dispatch control, not content) | ⬜ omitted |
 | acknowledged_by | text | Who acknowledged the alarm (nullable; a trigger stamps `when_acknowledged` on update) | ⬜ omitted |
-| when_acknowledged | timestamp with time zone | When it was acknowledged (nullable) | ⬜ omitted |
+| alarm_id | integer | Alarm-type identifier (nullable) — distinct from the row `id` | ⬜ `columns=[…, 'alarm_id']` |
+| component | text | Subsystem/component that raised the alarm | ✅ |
+| id | integer | Auto-increment primary key (`nextval('alarms_id_seq')`) | ✅ |
+| instance | text | DOS instance that raised it (nullable) | ✅ |
+| level | text | Severity: `CRITICAL` / `ALERT` / `WARNING` / `EVENT` (enforced by `alarms_level_check`) | ✅ |
+| message | text | Human-readable alarm message | ✅ |
 | ocs_msg, sms | text | OCS / SMS dispatch text (nullable) | ⬜ omitted |
+| sve_enabled, logbook, twitter, tcs, ocs, stop_exposure_loop, email_enabled, shutdown_gfa, shutdown_petalcontroller, slack | boolean | Alarm-handler **routing flags** — which handler this alarm triggers (dispatch control, not content) | ⬜ omitted |
+| time_recorded | timestamp with time zone | When the alarm was recorded — the time-window key (indexed) | ✅ |
+| when_acknowledged | timestamp with time zone | When it was acknowledged (nullable) | ⬜ omitted |
 
 
 ## Offline per-camera spectra: cframe `FIBERMAP` extension
@@ -1276,80 +1321,80 @@ Live example: camera z3, expid 359483. Per-fiber table: `exp.cframe_table(camera
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| TARGETID |  | Unique target identifier | 39627577605754915 | `exp.cframe_table(camera)['TARGETID']` |
-| PETAL_LOC |  | Petal (spectrograph unit) number 0-9 | 3 | `exp.cframe_table(camera)['PETAL_LOC']` |
-| DEVICE_LOC |  | Positioner device location within the petal | 69 | `exp.cframe_table(camera)['DEVICE_LOC']` |
-| LOCATION |  | PETAL_LOC*1000+DEVICE_LOC (confirmed identity) | 3069 | `exp.cframe_table(camera)['LOCATION']` |
-| FIBER |  | Fiber number -- confirmed to be the actual row-order key (sorted ascending), not DEVICE_LOC | 1500 | `exp.cframe_table(camera)['FIBER']` |
-| FIBERSTATUS |  |  | 0 | `exp.cframe_table(camera)['FIBERSTATUS']` |
-| TARGET_RA |  |  | 215.61054408321553 | `exp.cframe_table(camera)['TARGET_RA']` |
-| TARGET_DEC |  |  | -8.707479987403664 | `exp.cframe_table(camera)['TARGET_DEC']` |
+| BGS_TARGET |  | BGS-specific targeting bitmask; decode with desitarget.targetmask.bgs_mask | 0 | `exp.cframe_table(camera)['BGS_TARGET']` |
+| BRICK_OBJID |  |  | 4131 | `exp.cframe_table(camera)['BRICK_OBJID']` |
+| BRICKID |  |  | 280986 | `exp.cframe_table(camera)['BRICKID']` |
+| BRICKNAME |  |  | 2155m087 | `exp.cframe_table(camera)['BRICKNAME']` |
+| DELTA_X |  |  | -0.0017128483410754677 | `exp.cframe_table(camera)['DELTA_X']` |
+| DELTA_Y |  |  | -0.003753370773237464 | `exp.cframe_table(camera)['DELTA_Y']` |
+| DESI_TARGET |  | Targeting bitmask, main DARK/BRIGHT survey -- includes STD_FAINT/STD_WD/STD_BRIGHT standard-star bits; decode with desitarget.targetmask.desi_mask | 2305843009213693952 | `exp.cframe_table(camera)['DESI_TARGET']` |
 | DESINAME |  |  | DESI J215.6105-08.7074 | `exp.cframe_table(camera)['DESINAME']` |
-| PMRA |  |  | -3.8371637 | `exp.cframe_table(camera)['PMRA']` |
-| PMDEC |  |  | -4.191923 | `exp.cframe_table(camera)['PMDEC']` |
-| REF_EPOCH |  |  | 2015.5 | `exp.cframe_table(camera)['REF_EPOCH']` |
-| LAMBDA_REF |  |  | 5400.0 | `exp.cframe_table(camera)['LAMBDA_REF']` |
+| DEVICE_LOC |  | Positioner device location within the petal | 69 | `exp.cframe_table(camera)['DEVICE_LOC']` |
+| EBV |  |  | 0.053330027 | `exp.cframe_table(camera)['EBV']` |
+| EXPTIME |  |  | 1065.056 | `exp.cframe_table(camera)['EXPTIME']` |
 | FA_TARGET |  |  | 2305843009213693952 | `exp.cframe_table(camera)['FA_TARGET']` |
 | FA_TYPE |  |  | 1 | `exp.cframe_table(camera)['FA_TYPE']` |
-| OBJTYPE |  | Object type classification | TGT | `exp.cframe_table(camera)['OBJTYPE']` |
+| FIBER |  | Fiber number -- confirmed to be the actual row-order key (sorted ascending), not DEVICE_LOC | 1500 | `exp.cframe_table(camera)['FIBER']` |
+| FIBER_DEC |  |  | -8.707464676169353 | `exp.cframe_table(camera)['FIBER_DEC']` |
+| FIBER_RA |  |  | 215.61053716844762 | `exp.cframe_table(camera)['FIBER_RA']` |
+| FIBER_X |  |  | 123.22671284834107 | `exp.cframe_table(camera)['FIBER_X']` |
+| FIBER_Y |  |  | 72.52075337077324 | `exp.cframe_table(camera)['FIBER_Y']` |
 | FIBERASSIGN_X |  |  | 123.23582 | `exp.cframe_table(camera)['FIBERASSIGN_X']` |
 | FIBERASSIGN_Y |  |  | 72.52518 | `exp.cframe_table(camera)['FIBERASSIGN_Y']` |
-| PRIORITY |  |  | 1500 | `exp.cframe_table(camera)['PRIORITY']` |
-| SUBPRIORITY |  |  | 0.6081359900860978 | `exp.cframe_table(camera)['SUBPRIORITY']` |
-| OBSCONDITIONS |  |  | 516 | `exp.cframe_table(camera)['OBSCONDITIONS']` |
-| RELEASE |  |  | 9010 | `exp.cframe_table(camera)['RELEASE']` |
-| BRICKNAME |  |  | 2155m087 | `exp.cframe_table(camera)['BRICKNAME']` |
-| BRICKID |  |  | 280986 | `exp.cframe_table(camera)['BRICKID']` |
-| BRICK_OBJID |  |  | 4131 | `exp.cframe_table(camera)['BRICK_OBJID']` |
-| MORPHTYPE |  | Photometric morphology classification (e.g. PSF) | PSF | `exp.cframe_table(camera)['MORPHTYPE']` |
-| EBV |  |  | 0.053330027 | `exp.cframe_table(camera)['EBV']` |
-| FLUX_G |  |  | 76.58968 | `exp.cframe_table(camera)['FLUX_G']` |
-| FLUX_R |  |  | 111.96188 | `exp.cframe_table(camera)['FLUX_R']` |
-| FLUX_Z |  |  | 131.20618 | `exp.cframe_table(camera)['FLUX_Z']` |
-| FLUX_W1 |  |  | 35.954075 | `exp.cframe_table(camera)['FLUX_W1']` |
-| FLUX_W2 |  |  | 19.044018 | `exp.cframe_table(camera)['FLUX_W2']` |
-| FLUX_IVAR_G |  |  | 133.21568 | `exp.cframe_table(camera)['FLUX_IVAR_G']` |
-| FLUX_IVAR_R |  |  | 98.12086 | `exp.cframe_table(camera)['FLUX_IVAR_R']` |
-| FLUX_IVAR_Z |  |  | 47.98112 | `exp.cframe_table(camera)['FLUX_IVAR_Z']` |
-| FLUX_IVAR_W1 |  |  | 2.2671554 | `exp.cframe_table(camera)['FLUX_IVAR_W1']` |
-| FLUX_IVAR_W2 |  |  | 0.5556476 | `exp.cframe_table(camera)['FLUX_IVAR_W2']` |
 | FIBERFLUX_G |  |  | 59.570496 | `exp.cframe_table(camera)['FIBERFLUX_G']` |
 | FIBERFLUX_R |  |  | 87.08255 | `exp.cframe_table(camera)['FIBERFLUX_R']` |
 | FIBERFLUX_Z |  |  | 102.05052 | `exp.cframe_table(camera)['FIBERFLUX_Z']` |
+| FIBERSTATUS |  |  | 0 | `exp.cframe_table(camera)['FIBERSTATUS']` |
 | FIBERTOTFLUX_G |  |  | 59.570496 | `exp.cframe_table(camera)['FIBERTOTFLUX_G']` |
 | FIBERTOTFLUX_R |  |  | 87.08255 | `exp.cframe_table(camera)['FIBERTOTFLUX_R']` |
 | FIBERTOTFLUX_Z |  |  | 102.05052 | `exp.cframe_table(camera)['FIBERTOTFLUX_Z']` |
+| FLAT_TO_PSF_FLUX |  |  | 1.0204433 | `exp.cframe_table(camera)['FLAT_TO_PSF_FLUX']` |
+| FLUX_G |  |  | 76.58968 | `exp.cframe_table(camera)['FLUX_G']` |
+| FLUX_IVAR_G |  |  | 133.21568 | `exp.cframe_table(camera)['FLUX_IVAR_G']` |
+| FLUX_IVAR_R |  |  | 98.12086 | `exp.cframe_table(camera)['FLUX_IVAR_R']` |
+| FLUX_IVAR_W1 |  |  | 2.2671554 | `exp.cframe_table(camera)['FLUX_IVAR_W1']` |
+| FLUX_IVAR_W2 |  |  | 0.5556476 | `exp.cframe_table(camera)['FLUX_IVAR_W2']` |
+| FLUX_IVAR_Z |  |  | 47.98112 | `exp.cframe_table(camera)['FLUX_IVAR_Z']` |
+| FLUX_R |  |  | 111.96188 | `exp.cframe_table(camera)['FLUX_R']` |
+| FLUX_W1 |  |  | 35.954075 | `exp.cframe_table(camera)['FLUX_W1']` |
+| FLUX_W2 |  |  | 19.044018 | `exp.cframe_table(camera)['FLUX_W2']` |
+| FLUX_Z |  |  | 131.20618 | `exp.cframe_table(camera)['FLUX_Z']` |
+| GAIA_PHOT_BP_MEAN_MAG |  |  | 17.770653 | `exp.cframe_table(camera)['GAIA_PHOT_BP_MEAN_MAG']` |
+| GAIA_PHOT_G_MEAN_MAG |  | Gaia G-band magnitude, used e.g. to select bright stars in linphi_splitflux.ipynb | 17.45347 | `exp.cframe_table(camera)['GAIA_PHOT_G_MEAN_MAG']` |
+| GAIA_PHOT_RP_MEAN_MAG |  |  | 16.930521 | `exp.cframe_table(camera)['GAIA_PHOT_RP_MEAN_MAG']` |
+| HELIOCOR_OFFSET |  |  | -4.1560915e-07 | `exp.cframe_table(camera)['HELIOCOR_OFFSET']` |
+| LAMBDA_REF |  |  | 5400.0 | `exp.cframe_table(camera)['LAMBDA_REF']` |
+| LOCATION |  | PETAL_LOC*1000+DEVICE_LOC (confirmed identity) | 3069 | `exp.cframe_table(camera)['LOCATION']` |
 | MASKBITS |  |  | 0 | `exp.cframe_table(camera)['MASKBITS']` |
+| MORPHTYPE |  | Photometric morphology classification (e.g. PSF) | PSF | `exp.cframe_table(camera)['MORPHTYPE']` |
+| MWS_TARGET |  | MWS-specific targeting bitmask -- also where BACKUP-program exposures (program='BACKUP') flag their standard stars (GAIA_STD_FAINT/GAIA_STD_WD/GAIA_STD_BRIGHT) instead of DESI_TARGET -- confirmed real: a BACKUP exposure had 0/297 calibstars fibers match DESI_TARGET's STD bits, 297/297 match MWS_TARGET's GAIA_STD bits instead; decode with desitarget.targetmask.mws_mask | 1280 | `exp.cframe_table(camera)['MWS_TARGET']` |
+| NUM_ITER |  |  | 2 | `exp.cframe_table(camera)['NUM_ITER']` |
+| NUMOBS_INIT |  |  | 2 | `exp.cframe_table(camera)['NUMOBS_INIT']` |
+| OBJTYPE |  | Object type classification | TGT | `exp.cframe_table(camera)['OBJTYPE']` |
+| OBSCONDITIONS |  |  | 516 | `exp.cframe_table(camera)['OBSCONDITIONS']` |
+| PARALLAX |  |  | 0.035127345 | `exp.cframe_table(camera)['PARALLAX']` |
+| PETAL_LOC |  | Petal (spectrograph unit) number 0-9 | 3 | `exp.cframe_table(camera)['PETAL_LOC']` |
+| PHOTSYS |  |  | S | `exp.cframe_table(camera)['PHOTSYS']` |
+| PLATE_DEC |  |  | -8.707479987403664 | `exp.cframe_table(camera)['PLATE_DEC']` |
+| PLATE_RA |  |  | 215.61054408321553 | `exp.cframe_table(camera)['PLATE_RA']` |
+| PMDEC |  |  | -4.191923 | `exp.cframe_table(camera)['PMDEC']` |
+| PMRA |  |  | -3.8371637 | `exp.cframe_table(camera)['PMRA']` |
+| PRIORITY |  |  | 1500 | `exp.cframe_table(camera)['PRIORITY']` |
+| PRIORITY_INIT |  |  | 1500 | `exp.cframe_table(camera)['PRIORITY_INIT']` |
+| PSF_TO_FIBER_SPECFLUX |  |  | 0.789 | `exp.cframe_table(camera)['PSF_TO_FIBER_SPECFLUX']` |
+| REF_CAT |  |  | G2 | `exp.cframe_table(camera)['REF_CAT']` |
+| REF_EPOCH |  |  | 2015.5 | `exp.cframe_table(camera)['REF_EPOCH']` |
+| REF_ID |  |  | 6329550238201715584 | `exp.cframe_table(camera)['REF_ID']` |
+| RELEASE |  |  | 9010 | `exp.cframe_table(camera)['RELEASE']` |
+| SCND_TARGET |  | Secondary-program targeting bitmask; decode with desitarget.targetmask.scnd_mask | 0 | `exp.cframe_table(camera)['SCND_TARGET']` |
 | SERSIC |  |  | 0.0 | `exp.cframe_table(camera)['SERSIC']` |
-| SHAPE_R |  |  | 0.0 | `exp.cframe_table(camera)['SHAPE_R']` |
 | SHAPE_E1 |  |  | 0.0 | `exp.cframe_table(camera)['SHAPE_E1']` |
 | SHAPE_E2 |  |  | 0.0 | `exp.cframe_table(camera)['SHAPE_E2']` |
-| REF_ID |  |  | 6329550238201715584 | `exp.cframe_table(camera)['REF_ID']` |
-| REF_CAT |  |  | G2 | `exp.cframe_table(camera)['REF_CAT']` |
-| GAIA_PHOT_G_MEAN_MAG |  | Gaia G-band magnitude, used e.g. to select bright stars in linphi_splitflux.ipynb | 17.45347 | `exp.cframe_table(camera)['GAIA_PHOT_G_MEAN_MAG']` |
-| GAIA_PHOT_BP_MEAN_MAG |  |  | 17.770653 | `exp.cframe_table(camera)['GAIA_PHOT_BP_MEAN_MAG']` |
-| GAIA_PHOT_RP_MEAN_MAG |  |  | 16.930521 | `exp.cframe_table(camera)['GAIA_PHOT_RP_MEAN_MAG']` |
-| PARALLAX |  |  | 0.035127345 | `exp.cframe_table(camera)['PARALLAX']` |
-| PHOTSYS |  |  | S | `exp.cframe_table(camera)['PHOTSYS']` |
-| PRIORITY_INIT |  |  | 1500 | `exp.cframe_table(camera)['PRIORITY_INIT']` |
-| NUMOBS_INIT |  |  | 2 | `exp.cframe_table(camera)['NUMOBS_INIT']` |
-| DESI_TARGET |  | Targeting bitmask, main DARK/BRIGHT survey -- includes STD_FAINT/STD_WD/STD_BRIGHT standard-star bits; decode with desitarget.targetmask.desi_mask | 2305843009213693952 | `exp.cframe_table(camera)['DESI_TARGET']` |
-| BGS_TARGET |  | BGS-specific targeting bitmask; decode with desitarget.targetmask.bgs_mask | 0 | `exp.cframe_table(camera)['BGS_TARGET']` |
-| MWS_TARGET |  | MWS-specific targeting bitmask -- also where BACKUP-program exposures (program='BACKUP') flag their standard stars (GAIA_STD_FAINT/GAIA_STD_WD/GAIA_STD_BRIGHT) instead of DESI_TARGET -- confirmed real: a BACKUP exposure had 0/297 calibstars fibers match DESI_TARGET's STD bits, 297/297 match MWS_TARGET's GAIA_STD bits instead; decode with desitarget.targetmask.mws_mask | 1280 | `exp.cframe_table(camera)['MWS_TARGET']` |
-| SCND_TARGET |  | Secondary-program targeting bitmask; decode with desitarget.targetmask.scnd_mask | 0 | `exp.cframe_table(camera)['SCND_TARGET']` |
-| PLATE_RA |  |  | 215.61054408321553 | `exp.cframe_table(camera)['PLATE_RA']` |
-| PLATE_DEC |  |  | -8.707479987403664 | `exp.cframe_table(camera)['PLATE_DEC']` |
-| NUM_ITER |  |  | 2 | `exp.cframe_table(camera)['NUM_ITER']` |
-| FIBER_X |  |  | 123.22671284834107 | `exp.cframe_table(camera)['FIBER_X']` |
-| FIBER_Y |  |  | 72.52075337077324 | `exp.cframe_table(camera)['FIBER_Y']` |
-| DELTA_X |  |  | -0.0017128483410754677 | `exp.cframe_table(camera)['DELTA_X']` |
-| DELTA_Y |  |  | -0.003753370773237464 | `exp.cframe_table(camera)['DELTA_Y']` |
-| FIBER_RA |  |  | 215.61053716844762 | `exp.cframe_table(camera)['FIBER_RA']` |
-| FIBER_DEC |  |  | -8.707464676169353 | `exp.cframe_table(camera)['FIBER_DEC']` |
-| EXPTIME |  |  | 1065.056 | `exp.cframe_table(camera)['EXPTIME']` |
-| PSF_TO_FIBER_SPECFLUX |  |  | 0.789 | `exp.cframe_table(camera)['PSF_TO_FIBER_SPECFLUX']` |
-| FLAT_TO_PSF_FLUX |  |  | 1.0204433 | `exp.cframe_table(camera)['FLAT_TO_PSF_FLUX']` |
-| HELIOCOR_OFFSET |  |  | -4.1560915e-07 | `exp.cframe_table(camera)['HELIOCOR_OFFSET']` |
+| SHAPE_R |  |  | 0.0 | `exp.cframe_table(camera)['SHAPE_R']` |
+| SUBPRIORITY |  |  | 0.6081359900860978 | `exp.cframe_table(camera)['SUBPRIORITY']` |
+| TARGET_DEC |  |  | -8.707479987403664 | `exp.cframe_table(camera)['TARGET_DEC']` |
+| TARGET_RA |  |  | 215.61054408321553 | `exp.cframe_table(camera)['TARGET_RA']` |
+| TARGETID |  | Unique target identifier | 39627577605754915 | `exp.cframe_table(camera)['TARGETID']` |
 
 
 ## Offline per-camera spectra: cframe `SCORES` extension
@@ -1358,18 +1403,18 @@ Row-aligned with FIBERMAP (no location columns of its own -- see project memory)
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| SUM_RAW_COUNT_Z |  |  | 5759298.819549561 | `exp.cframe_table(camera)['SUM_RAW_COUNT_Z']` |
-| MEDIAN_RAW_COUNT_Z |  |  | 2022.9913330073525 | `exp.cframe_table(camera)['MEDIAN_RAW_COUNT_Z']` |
-| MEDIAN_RAW_SNR_Z |  |  | 39.60517239138913 | `exp.cframe_table(camera)['MEDIAN_RAW_SNR_Z']` |
-| SUM_FFLAT_COUNT_Z |  |  | 5200799.131333322 | `exp.cframe_table(camera)['SUM_FFLAT_COUNT_Z']` |
+| MEDIAN_CALIB_COUNT_Z |  | Median calibrated flux count, z camera (used by linphi_splitflux.ipynb) | 27.184375475074667 | `exp.cframe_table(camera)['MEDIAN_CALIB_COUNT_Z']` |
+| MEDIAN_CALIB_SNR_Z |  | Median calibrated S/N, z camera | 28.32782720464347 | `exp.cframe_table(camera)['MEDIAN_CALIB_SNR_Z']` |
 | MEDIAN_FFLAT_COUNT_Z |  |  | 1833.8096687690395 | `exp.cframe_table(camera)['MEDIAN_FFLAT_COUNT_Z']` |
 | MEDIAN_FFLAT_SNR_Z |  |  | 39.2455173432341 | `exp.cframe_table(camera)['MEDIAN_FFLAT_SNR_Z']` |
-| SUM_SKYSUB_COUNT_Z |  |  | 2929736.222333169 | `exp.cframe_table(camera)['SUM_SKYSUB_COUNT_Z']` |
+| MEDIAN_RAW_COUNT_Z |  |  | 2022.9913330073525 | `exp.cframe_table(camera)['MEDIAN_RAW_COUNT_Z']` |
+| MEDIAN_RAW_SNR_Z |  |  | 39.60517239138913 | `exp.cframe_table(camera)['MEDIAN_RAW_SNR_Z']` |
 | MEDIAN_SKYSUB_COUNT_Z |  |  | 1469.536623615407 | `exp.cframe_table(camera)['MEDIAN_SKYSUB_COUNT_Z']` |
 | MEDIAN_SKYSUB_SNR_Z |  |  | 30.12359863552129 | `exp.cframe_table(camera)['MEDIAN_SKYSUB_SNR_Z']` |
 | SUM_CALIB_COUNT_Z |  |  | 60388.37594276784 | `exp.cframe_table(camera)['SUM_CALIB_COUNT_Z']` |
-| MEDIAN_CALIB_COUNT_Z |  | Median calibrated flux count, z camera (used by linphi_splitflux.ipynb) | 27.184375475074667 | `exp.cframe_table(camera)['MEDIAN_CALIB_COUNT_Z']` |
-| MEDIAN_CALIB_SNR_Z |  | Median calibrated S/N, z camera | 28.32782720464347 | `exp.cframe_table(camera)['MEDIAN_CALIB_SNR_Z']` |
+| SUM_FFLAT_COUNT_Z |  |  | 5200799.131333322 | `exp.cframe_table(camera)['SUM_FFLAT_COUNT_Z']` |
+| SUM_RAW_COUNT_Z |  |  | 5759298.819549561 | `exp.cframe_table(camera)['SUM_RAW_COUNT_Z']` |
+| SUM_SKYSUB_COUNT_Z |  |  | 2929736.222333169 | `exp.cframe_table(camera)['SUM_SKYSUB_COUNT_Z']` |
 | TSNR2_BGS_Z |  | BGS template S/N^2 contribution, this fiber, z arm | 995.9690230942432 | `exp.cframe_table(camera)['TSNR2_BGS_Z']` |
 | TSNR2_ELG_Z |  |  | 22.478929826823844 | `exp.cframe_table(camera)['TSNR2_ELG_Z']` |
 | TSNR2_GPBBACKUP_Z |  |  | 9.577119315632603e-06 | `exp.cframe_table(camera)['TSNR2_GPBBACKUP_Z']` |
@@ -1384,35 +1429,35 @@ Row-aligned with FIBERMAP (no location columns of its own -- see project memory)
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| EXPID |  | Exposure ID | 83522 | `gfa_row['EXPID']` |
-| CUBE_INDEX |  |  | -1 | `gfa_row['CUBE_INDEX']` |
-| NIGHT |  | Observing night | 20210405 | `gfa_row['NIGHT']` |
-| EXPTIME |  | Guider's own per-frame exposure time (s) -- NOT the spectrograph EXPTIME, can differ substantially (e.g. 5s guider frame during a much longer science exposure) | 5.0 | `gfa_row['EXPTIME']` |
-| FNAME_RAW |  |  | /global/cfs/cdirs/desi/spectro/data/20210405/00083522/gui... | `gfa_row['FNAME_RAW']` |
-| SKYRA |  |  | 150.045192 | `gfa_row['SKYRA']` |
-| SKYDEC |  |  | 2.27918 | `gfa_row['SKYDEC']` |
-| PROGRAM |  |  | BRIGHT | `gfa_row['PROGRAM']` |
-| MOON_ILLUMINATION |  | Fraction of the Moon illuminated (0-1) | 0.32165655238961327 | `gfa_row['MOON_ILLUMINATION']` |
-| MOON_ZD_DEG |  | Moon zenith distance (deg) | 169.97905325303662 | `gfa_row['MOON_ZD_DEG']` |
-| MOON_SEP_DEG |  | Moon-target angular separation (deg) | 151.56973009087207 | `gfa_row['MOON_SEP_DEG']` |
-| KTERM |  | Extinction k-term used | 0.114 | `gfa_row['KTERM']` |
-| FRACFLUX_NOMINAL_POINTSOURCE |  |  | 0.58176816 | `gfa_row['FRACFLUX_NOMINAL_POINTSOURCE']` |
-| FRACFLUX_NOMINAL_ELG |  |  | 0.42423388 | `gfa_row['FRACFLUX_NOMINAL_ELG']` |
-| FRACFLUX_NOMINAL_BGS |  |  | 0.19544029 | `gfa_row['FRACFLUX_NOMINAL_BGS']` |
-| MJD |  |  | 59310.1223353314 | `gfa_row['MJD']` |
-| FWHM_ASEC |  | Seeing FWHM (arcsec) -- confirmed NaN-free across all of EXPOSURE_SUMMARY_STRICT | 1.2810781090848906 | `gfa_row['FWHM_ASEC']` |
-| TRANSPARENCY |  | Atmospheric transparency estimate | 0.07630297572569356 | `gfa_row['TRANSPARENCY']` |
-| SKY_MAG_AB |  | Sky brightness, AB mag/arcsec^2 | 20.198798889675196 | `gfa_row['SKY_MAG_AB']` |
-| FIBER_FRACFLUX |  | Fraction of flux captured within a fiber (point source) | 0.46873832443347047 | `gfa_row['FIBER_FRACFLUX']` |
-| FIBER_FRACFLUX_ELG |  |  | 0.3516396983470239 | `gfa_row['FIBER_FRACFLUX_ELG']` |
-| FIBER_FRACFLUX_BGS |  |  | 0.1651608369709665 | `gfa_row['FIBER_FRACFLUX_BGS']` |
 | AIRMASS |  |  | 1.2476632872345048 | `gfa_row['AIRMASS']` |
-| RADPROF_FWHM_ASEC |  |  | 1.3382835703547182 | `gfa_row['RADPROF_FWHM_ASEC']` |
+| CUBE_INDEX |  |  | -1 | `gfa_row['CUBE_INDEX']` |
+| EXPID |  | Exposure ID | 83522 | `gfa_row['EXPID']` |
+| EXPTIME |  | Guider's own per-frame exposure time (s) -- NOT the spectrograph EXPTIME, can differ substantially (e.g. 5s guider frame during a much longer science exposure) | 5.0 | `gfa_row['EXPTIME']` |
+| FIBER_FRACFLUX |  | Fraction of flux captured within a fiber (point source) | 0.46873832443347047 | `gfa_row['FIBER_FRACFLUX']` |
+| FIBER_FRACFLUX_BGS |  |  | 0.1651608369709665 | `gfa_row['FIBER_FRACFLUX_BGS']` |
+| FIBER_FRACFLUX_ELG |  |  | 0.3516396983470239 | `gfa_row['FIBER_FRACFLUX_ELG']` |
 | FIBERFAC |  | Fiber acceptance fraction (point source) | 0.05873999987469156 | `gfa_row['FIBERFAC']` |
-| FIBERFAC_ELG |  | Fiber acceptance fraction, ELG profile | 0.06026796197292698 | `gfa_row['FIBERFAC_ELG']` |
 | FIBERFAC_BGS |  | Fiber acceptance fraction, BGS profile | 0.0615441450052719 | `gfa_row['FIBERFAC_BGS']` |
-| MINCONTRAST |  |  | 3.4190660995870124 | `gfa_row['MINCONTRAST']` |
+| FIBERFAC_ELG |  | Fiber acceptance fraction, ELG profile | 0.06026796197292698 | `gfa_row['FIBERFAC_ELG']` |
+| FNAME_RAW |  |  | /global/cfs/cdirs/desi/spectro/data/20210405/00083522/gui... | `gfa_row['FNAME_RAW']` |
+| FRACFLUX_NOMINAL_BGS |  |  | 0.19544029 | `gfa_row['FRACFLUX_NOMINAL_BGS']` |
+| FRACFLUX_NOMINAL_ELG |  |  | 0.42423388 | `gfa_row['FRACFLUX_NOMINAL_ELG']` |
+| FRACFLUX_NOMINAL_POINTSOURCE |  |  | 0.58176816 | `gfa_row['FRACFLUX_NOMINAL_POINTSOURCE']` |
+| FWHM_ASEC |  | Seeing FWHM (arcsec) -- confirmed NaN-free across all of EXPOSURE_SUMMARY_STRICT | 1.2810781090848906 | `gfa_row['FWHM_ASEC']` |
+| KTERM |  | Extinction k-term used | 0.114 | `gfa_row['KTERM']` |
 | MAXCONTRAST |  |  | 5.552699726758177 | `gfa_row['MAXCONTRAST']` |
+| MINCONTRAST |  |  | 3.4190660995870124 | `gfa_row['MINCONTRAST']` |
+| MJD |  |  | 59310.1223353314 | `gfa_row['MJD']` |
+| MOON_ILLUMINATION |  | Fraction of the Moon illuminated (0-1) | 0.32165655238961327 | `gfa_row['MOON_ILLUMINATION']` |
+| MOON_SEP_DEG |  | Moon-target angular separation (deg) | 151.56973009087207 | `gfa_row['MOON_SEP_DEG']` |
+| MOON_ZD_DEG |  | Moon zenith distance (deg) | 169.97905325303662 | `gfa_row['MOON_ZD_DEG']` |
+| NIGHT |  | Observing night | 20210405 | `gfa_row['NIGHT']` |
+| PROGRAM |  |  | BRIGHT | `gfa_row['PROGRAM']` |
+| RADPROF_FWHM_ASEC |  |  | 1.3382835703547182 | `gfa_row['RADPROF_FWHM_ASEC']` |
+| SKY_MAG_AB |  | Sky brightness, AB mag/arcsec^2 | 20.198798889675196 | `gfa_row['SKY_MAG_AB']` |
+| SKYDEC |  |  | 2.27918 | `gfa_row['SKYDEC']` |
+| SKYRA |  |  | 150.045192 | `gfa_row['SKYRA']` |
+| TRANSPARENCY |  | Atmospheric transparency estimate | 0.07630297572569356 | `gfa_row['TRANSPARENCY']` |
 
 
 ## Offline per-exposure QA: `exposure-qa-<expid>.fits` -- `FIBERQA` header (scalar QA summary)
@@ -1421,14 +1466,14 @@ Row-aligned with FIBERMAP (no location columns of its own -- see project memory)
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
+| EFFTIME | float | Pipeline effective time -- confirmed near-identical to redux_row['EFFTIME_SPEC'] for the same exposure | 230.07797 | `fiberqa['EFFTIME']` |
+| FPRMS2D | float | Fiber positioning RMS (2D), post-hoc QA -- confirmed distinct from db_row['posrms'] | 0.006449469234919501 | `fiberqa['FPRMS2D']` |
 | NGOODFIB | int | Number of fibers passing QA | 4362 | `fiberqa['NGOODFIB']` |
 | NGOODPET | int | Number of petals passing QA | 10 | `fiberqa['NGOODPET']` |
-| WORSTRDN | float | Worst (highest) CCD read noise across all cameras for this exposure | 4.5657738006904065 | `fiberqa['WORSTRDN']` |
-| FPRMS2D | float | Fiber positioning RMS (2D), post-hoc QA -- confirmed distinct from db_row['posrms'] | 0.006449469234919501 | `fiberqa['FPRMS2D']` |
-| EFFTIME | float | Pipeline effective time -- confirmed near-identical to redux_row['EFFTIME_SPEC'] for the same exposure | 230.07797 | `fiberqa['EFFTIME']` |
 | SKY_MAG_G_SPEC | float | Whole-exposure sky brightness, g band, AB mag/arcsec^2 (distinct from PETALQA's per-petal SKY_MAG_G_SPEC) | 21.554023609456166 | — |
 | SKY_MAG_R_SPEC | float | Whole-exposure sky brightness, r band | 20.84411935264965 | — |
 | SKY_MAG_Z_SPEC | float | Whole-exposure sky brightness, z band | 19.01187014349819 | — |
+| WORSTRDN | float | Worst (highest) CCD read noise across all cameras for this exposure | 4.5657738006904065 | `fiberqa['WORSTRDN']` |
 
 
 ## Offline per-exposure QA: `exposure-qa-<expid>.fits` -- `FIBERQA` table (per-fiber QA)
@@ -1437,20 +1482,20 @@ Row-aligned with FIBERMAP (no location columns of its own -- see project memory)
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| TARGETID | int64 | Unique target identifier | 48423634854746143 | `fiberqa_table['TARGETID']` (per-fiber table) |
-| PETAL_LOC | int16 | Petal (spectrograph unit) number 0-9 | 0 | `fiberqa_table['PETAL_LOC']` (per-fiber table) |
-| DEVICE_LOC | int32 | Positioner device location within the petal | 311 | `fiberqa_table['DEVICE_LOC']` (per-fiber table) |
-| LOCATION | int64 | PETAL_LOC*1000+DEVICE_LOC | 311 | `fiberqa_table['LOCATION']` (per-fiber table) |
-| FIBER | int32 | Fiber number, 0-4999 across the whole focal plane (not per-camera like cframe's FIBERMAP) | 0 | `fiberqa_table['FIBER']` (per-fiber table) |
-| TARGET_RA | float64 | Target RA (deg) | 215.78365050347062 | `fiberqa_table['TARGET_RA']` (per-fiber table) |
-| TARGET_DEC | float64 | Target Dec (deg) | -10.155565978245603 | `fiberqa_table['TARGET_DEC']` (per-fiber table) |
-| FIBER_X | float64 | Fiber X position (post-correction) | 81.61396925999655 | `fiberqa_table['FIBER_X']` (per-fiber table) |
-| FIBER_Y | float64 | Fiber Y position (post-correction) | -286.1526430867038 | `fiberqa_table['FIBER_Y']` (per-fiber table) |
 | DELTA_X | float64 | Positioning residual, X | -0.003969259996546684 | `fiberqa_table['DELTA_X']` (per-fiber table) |
 | DELTA_Y | float64 | Positioning residual, Y | 0.0006430867037716715 | `fiberqa_table['DELTA_Y']` (per-fiber table) |
+| DEVICE_LOC | int32 | Positioner device location within the petal | 311 | `fiberqa_table['DEVICE_LOC']` (per-fiber table) |
 | EBV | float32 | Galactic extinction E(B-V) at this target | 0.06676148 | `fiberqa_table['EBV']` (per-fiber table) |
-| QAFIBERSTATUS | int32 | Per-fiber QA status bitmask (0 = good) -- this is the per-fiber detail behind the exposure-level NGOODFIB/NGOODPET summary | 0 | `fiberqa_table['QAFIBERSTATUS']` (per-fiber table) |
 | EFFTIME_SPEC | float32 | Per-fiber effective spectroscopic time (s) -- finer-grained than the whole-exposure EFFTIME in the FIBERQA header | 187.63637 | `fiberqa_table['EFFTIME_SPEC']` (per-fiber table) |
+| FIBER | int32 | Fiber number, 0-4999 across the whole focal plane (not per-camera like cframe's FIBERMAP) | 0 | `fiberqa_table['FIBER']` (per-fiber table) |
+| FIBER_X | float64 | Fiber X position (post-correction) | 81.61396925999655 | `fiberqa_table['FIBER_X']` (per-fiber table) |
+| FIBER_Y | float64 | Fiber Y position (post-correction) | -286.1526430867038 | `fiberqa_table['FIBER_Y']` (per-fiber table) |
+| LOCATION | int64 | PETAL_LOC*1000+DEVICE_LOC | 311 | `fiberqa_table['LOCATION']` (per-fiber table) |
+| PETAL_LOC | int16 | Petal (spectrograph unit) number 0-9 | 0 | `fiberqa_table['PETAL_LOC']` (per-fiber table) |
+| QAFIBERSTATUS | int32 | Per-fiber QA status bitmask (0 = good) -- this is the per-fiber detail behind the exposure-level NGOODFIB/NGOODPET summary | 0 | `fiberqa_table['QAFIBERSTATUS']` (per-fiber table) |
+| TARGET_DEC | float64 | Target Dec (deg) | -10.155565978245603 | `fiberqa_table['TARGET_DEC']` (per-fiber table) |
+| TARGET_RA | float64 | Target RA (deg) | 215.78365050347062 | `fiberqa_table['TARGET_RA']` (per-fiber table) |
+| TARGETID | int64 | Unique target identifier | 48423634854746143 | `fiberqa_table['TARGETID']` (per-fiber table) |
 
 
 ## Offline per-exposure QA: `exposure-qa-<expid>.fits` -- `PETALQA` table
@@ -1459,50 +1504,50 @@ Row-aligned with FIBERMAP (no location columns of its own -- see project memory)
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| PETAL_LOC | int16 | Petal (spectrograph unit) number 0-9 | 0 | `petalqa['PETAL_LOC']` (per-petal table) |
-| WORSTREADNOISE | float32 | Worst (highest) CCD read noise across this petal's cameras | 2.8247197 | `petalqa['WORSTREADNOISE']` (per-petal table) |
-| NGOODPOS | int16 | Number of fiber positioners passing QA on this petal | 471 | `petalqa['NGOODPOS']` (per-petal table) |
-| NGOODFIB | int16 | Number of fibers passing QA on this petal -- per-petal detail behind the exposure-level FIBERQA NGOODFIB total | 464 | `petalqa['NGOODFIB']` (per-petal table) |
-| NSTDSTAR | int16 | Number of standard stars used for flux calibration on this petal | 10 | `petalqa['NSTDSTAR']` (per-petal table) |
-| STARRMS | float32 | RMS scatter of standard-star flux calibration residuals on this petal | 0.05494451 | `petalqa['STARRMS']` (per-petal table) |
+| BSKYCHI2PDF | float32 | Sky-subtraction chi^2/dof, b camera | 0.9343856 | `petalqa['BSKYCHI2PDF']` (per-petal table) |
+| BSKYTHRURMS | float32 | Sky-fiber throughput RMS, b camera | 0.009978867 | `petalqa['BSKYTHRURMS']` (per-petal table) |
+| BTHRUFRAC | float32 | Median throughput fraction, b camera | 0.9286643 | `petalqa['BTHRUFRAC']` (per-petal table) |
 | EFFTIME_SPEC | float32 | Effective spectroscopic time for this petal (s) | 209.53212 | `petalqa['EFFTIME_SPEC']` (per-petal table) |
 | NCFRAME | int16 | Number of cframes (exposure sequence coadds) combined for this petal | 3 | `petalqa['NCFRAME']` (per-petal table) |
-| BSKYTHRURMS | float32 | Sky-fiber throughput RMS, b camera | 0.009978867 | `petalqa['BSKYTHRURMS']` (per-petal table) |
-| BSKYCHI2PDF | float32 | Sky-subtraction chi^2/dof, b camera | 0.9343856 | `petalqa['BSKYCHI2PDF']` (per-petal table) |
-| RSKYTHRURMS | float32 | Sky-fiber throughput RMS, r camera | 0.005598954 | `petalqa['RSKYTHRURMS']` (per-petal table) |
+| NGOODFIB | int16 | Number of fibers passing QA on this petal -- per-petal detail behind the exposure-level FIBERQA NGOODFIB total | 464 | `petalqa['NGOODFIB']` (per-petal table) |
+| NGOODPOS | int16 | Number of fiber positioners passing QA on this petal | 471 | `petalqa['NGOODPOS']` (per-petal table) |
+| NSTDSTAR | int16 | Number of standard stars used for flux calibration on this petal | 10 | `petalqa['NSTDSTAR']` (per-petal table) |
+| PETAL_LOC | int16 | Petal (spectrograph unit) number 0-9 | 0 | `petalqa['PETAL_LOC']` (per-petal table) |
 | RSKYCHI2PDF | float32 | Sky-subtraction chi^2/dof, r camera | 0.97836775 | `petalqa['RSKYCHI2PDF']` (per-petal table) |
-| ZSKYTHRURMS | float32 | Sky-fiber throughput RMS, z camera | 0.00379174 | `petalqa['ZSKYTHRURMS']` (per-petal table) |
-| ZSKYCHI2PDF | float32 | Sky-subtraction chi^2/dof, z camera | 0.99931043 | `petalqa['ZSKYCHI2PDF']` (per-petal table) |
-| BTHRUFRAC | float32 | Median throughput fraction, b camera | 0.9286643 | `petalqa['BTHRUFRAC']` (per-petal table) |
+| RSKYTHRURMS | float32 | Sky-fiber throughput RMS, r camera | 0.005598954 | `petalqa['RSKYTHRURMS']` (per-petal table) |
 | RTHRUFRAC | float32 | Median throughput fraction, r camera | 0.9248428 | `petalqa['RTHRUFRAC']` (per-petal table) |
-| ZTHRUFRAC | float32 | Median throughput fraction, z camera | 0.9592113 | `petalqa['ZTHRUFRAC']` (per-petal table) |
 | SKY_MAG_G_SPEC | float32 | Per-petal sky brightness, g band, AB mag/arcsec^2 (distinct from FIBERQA's whole-exposure SKY_MAG_G_SPEC) | 21.527739 | `petalqa['SKY_MAG_G_SPEC']` (per-petal table) |
 | SKY_MAG_R_SPEC | float32 | Per-petal sky brightness, r band | 20.841593 | `petalqa['SKY_MAG_R_SPEC']` (per-petal table) |
 | SKY_MAG_Z_SPEC | float32 | Per-petal sky brightness, z band | 19.031895 | `petalqa['SKY_MAG_Z_SPEC']` (per-petal table) |
+| STARRMS | float32 | RMS scatter of standard-star flux calibration residuals on this petal | 0.05494451 | `petalqa['STARRMS']` (per-petal table) |
+| TSNR2_BGS_B | float32 | Per-petal BGS template S/N^2, B camera -- same metric as the whole-exposure TSNR2_BGS total in redux_row/exposures-daily.csv, but per petal rather than summed | 107.7736 | `petalqa['TSNR2_BGS_B']` (per-petal table) |
+| TSNR2_BGS_R | float32 | Per-petal BGS template S/N^2, R camera -- same metric as the whole-exposure TSNR2_BGS total in redux_row/exposures-daily.csv, but per petal rather than summed | 542.7214 | `petalqa['TSNR2_BGS_R']` (per-petal table) |
+| TSNR2_BGS_Z | float32 | Per-petal BGS template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_BGS total in redux_row/exposures-daily.csv, but per petal rather than summed | 852.78046 | `petalqa['TSNR2_BGS_Z']` (per-petal table) |
 | TSNR2_ELG_B | float32 | Per-petal ELG template S/N^2, B camera -- same metric as the whole-exposure TSNR2_ELG total in redux_row/exposures-daily.csv, but per petal rather than summed | 0.018429253 | `petalqa['TSNR2_ELG_B']` (per-petal table) |
 | TSNR2_ELG_R | float32 | Per-petal ELG template S/N^2, R camera -- same metric as the whole-exposure TSNR2_ELG total in redux_row/exposures-daily.csv, but per petal rather than summed | 4.990127 | `petalqa['TSNR2_ELG_R']` (per-petal table) |
 | TSNR2_ELG_Z | float32 | Per-petal ELG template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_ELG total in redux_row/exposures-daily.csv, but per petal rather than summed | 19.011303 | `petalqa['TSNR2_ELG_Z']` (per-petal table) |
-| TSNR2_QSO_B | float32 | Per-petal QSO template S/N^2, B camera -- same metric as the whole-exposure TSNR2_QSO total in redux_row/exposures-daily.csv, but per petal rather than summed | 0.41313574 | `petalqa['TSNR2_QSO_B']` (per-petal table) |
-| TSNR2_QSO_R | float32 | Per-petal QSO template S/N^2, R camera -- same metric as the whole-exposure TSNR2_QSO total in redux_row/exposures-daily.csv, but per petal rather than summed | 1.320497 | `petalqa['TSNR2_QSO_R']` (per-petal table) |
-| TSNR2_QSO_Z | float32 | Per-petal QSO template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_QSO total in redux_row/exposures-daily.csv, but per petal rather than summed | 3.21221 | `petalqa['TSNR2_QSO_Z']` (per-petal table) |
+| TSNR2_GPBBACKUP_B | float32 | Per-petal GPBBACKUP template S/N^2, B camera -- same metric as the whole-exposure TSNR2_GPBBACKUP total in redux_row/exposures-daily.csv, but per petal rather than summed | 66.14333 | `petalqa['TSNR2_GPBBACKUP_B']` (per-petal table) |
+| TSNR2_GPBBACKUP_R | float32 | Per-petal GPBBACKUP template S/N^2, R camera -- same metric as the whole-exposure TSNR2_GPBBACKUP total in redux_row/exposures-daily.csv, but per petal rather than summed | 3832.7527 | `petalqa['TSNR2_GPBBACKUP_R']` (per-petal table) |
+| TSNR2_GPBBACKUP_Z | float32 | Per-petal GPBBACKUP template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_GPBBACKUP total in redux_row/exposures-daily.csv, but per petal rather than summed | 6.0208554e-06 | `petalqa['TSNR2_GPBBACKUP_Z']` (per-petal table) |
+| TSNR2_GPBBRIGHT_B | float32 | Per-petal GPBBRIGHT template S/N^2, B camera -- same metric as the whole-exposure TSNR2_GPBBRIGHT total in redux_row/exposures-daily.csv, but per petal rather than summed | 7.40951 | `petalqa['TSNR2_GPBBRIGHT_B']` (per-petal table) |
+| TSNR2_GPBBRIGHT_R | float32 | Per-petal GPBBRIGHT template S/N^2, R camera -- same metric as the whole-exposure TSNR2_GPBBRIGHT total in redux_row/exposures-daily.csv, but per petal rather than summed | 468.2792 | `petalqa['TSNR2_GPBBRIGHT_R']` (per-petal table) |
+| TSNR2_GPBBRIGHT_Z | float32 | Per-petal GPBBRIGHT template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_GPBBRIGHT total in redux_row/exposures-daily.csv, but per petal rather than summed | 7.1993264e-07 | `petalqa['TSNR2_GPBBRIGHT_Z']` (per-petal table) |
+| TSNR2_GPBDARK_B | float32 | Per-petal GPBDARK template S/N^2, B camera -- same metric as the whole-exposure TSNR2_GPBDARK total in redux_row/exposures-daily.csv, but per petal rather than summed | 37.643417 | `petalqa['TSNR2_GPBDARK_B']` (per-petal table) |
+| TSNR2_GPBDARK_R | float32 | Per-petal GPBDARK template S/N^2, R camera -- same metric as the whole-exposure TSNR2_GPBDARK total in redux_row/exposures-daily.csv, but per petal rather than summed | 2409.9316 | `petalqa['TSNR2_GPBDARK_R']` (per-petal table) |
+| TSNR2_GPBDARK_Z | float32 | Per-petal GPBDARK template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_GPBDARK total in redux_row/exposures-daily.csv, but per petal rather than summed | 3.626135e-06 | `petalqa['TSNR2_GPBDARK_Z']` (per-petal table) |
 | TSNR2_LRG_B | float32 | Per-petal LRG template S/N^2, B camera -- same metric as the whole-exposure TSNR2_LRG total in redux_row/exposures-daily.csv, but per petal rather than summed | 0.1866554 | `petalqa['TSNR2_LRG_B']` (per-petal table) |
 | TSNR2_LRG_R | float32 | Per-petal LRG template S/N^2, R camera -- same metric as the whole-exposure TSNR2_LRG total in redux_row/exposures-daily.csv, but per petal rather than summed | 7.685456 | `petalqa['TSNR2_LRG_R']` (per-petal table) |
 | TSNR2_LRG_Z | float32 | Per-petal LRG template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_LRG total in redux_row/exposures-daily.csv, but per petal rather than summed | 8.902827 | `petalqa['TSNR2_LRG_Z']` (per-petal table) |
 | TSNR2_LYA_B | float32 | Per-petal LYA template S/N^2, B camera -- same metric as the whole-exposure TSNR2_LYA total in redux_row/exposures-daily.csv, but per petal rather than summed | 12.305319 | `petalqa['TSNR2_LYA_B']` (per-petal table) |
 | TSNR2_LYA_R | float32 | Per-petal LYA template S/N^2, R camera -- same metric as the whole-exposure TSNR2_LYA total in redux_row/exposures-daily.csv, but per petal rather than summed | 0.008186403 | `petalqa['TSNR2_LYA_R']` (per-petal table) |
 | TSNR2_LYA_Z | float32 | Per-petal LYA template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_LYA total in redux_row/exposures-daily.csv, but per petal rather than summed | 0.0 | `petalqa['TSNR2_LYA_Z']` (per-petal table) |
-| TSNR2_BGS_B | float32 | Per-petal BGS template S/N^2, B camera -- same metric as the whole-exposure TSNR2_BGS total in redux_row/exposures-daily.csv, but per petal rather than summed | 107.7736 | `petalqa['TSNR2_BGS_B']` (per-petal table) |
-| TSNR2_BGS_R | float32 | Per-petal BGS template S/N^2, R camera -- same metric as the whole-exposure TSNR2_BGS total in redux_row/exposures-daily.csv, but per petal rather than summed | 542.7214 | `petalqa['TSNR2_BGS_R']` (per-petal table) |
-| TSNR2_BGS_Z | float32 | Per-petal BGS template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_BGS total in redux_row/exposures-daily.csv, but per petal rather than summed | 852.78046 | `petalqa['TSNR2_BGS_Z']` (per-petal table) |
-| TSNR2_GPBDARK_B | float32 | Per-petal GPBDARK template S/N^2, B camera -- same metric as the whole-exposure TSNR2_GPBDARK total in redux_row/exposures-daily.csv, but per petal rather than summed | 37.643417 | `petalqa['TSNR2_GPBDARK_B']` (per-petal table) |
-| TSNR2_GPBDARK_R | float32 | Per-petal GPBDARK template S/N^2, R camera -- same metric as the whole-exposure TSNR2_GPBDARK total in redux_row/exposures-daily.csv, but per petal rather than summed | 2409.9316 | `petalqa['TSNR2_GPBDARK_R']` (per-petal table) |
-| TSNR2_GPBDARK_Z | float32 | Per-petal GPBDARK template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_GPBDARK total in redux_row/exposures-daily.csv, but per petal rather than summed | 3.626135e-06 | `petalqa['TSNR2_GPBDARK_Z']` (per-petal table) |
-| TSNR2_GPBBRIGHT_B | float32 | Per-petal GPBBRIGHT template S/N^2, B camera -- same metric as the whole-exposure TSNR2_GPBBRIGHT total in redux_row/exposures-daily.csv, but per petal rather than summed | 7.40951 | `petalqa['TSNR2_GPBBRIGHT_B']` (per-petal table) |
-| TSNR2_GPBBRIGHT_R | float32 | Per-petal GPBBRIGHT template S/N^2, R camera -- same metric as the whole-exposure TSNR2_GPBBRIGHT total in redux_row/exposures-daily.csv, but per petal rather than summed | 468.2792 | `petalqa['TSNR2_GPBBRIGHT_R']` (per-petal table) |
-| TSNR2_GPBBRIGHT_Z | float32 | Per-petal GPBBRIGHT template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_GPBBRIGHT total in redux_row/exposures-daily.csv, but per petal rather than summed | 7.1993264e-07 | `petalqa['TSNR2_GPBBRIGHT_Z']` (per-petal table) |
-| TSNR2_GPBBACKUP_B | float32 | Per-petal GPBBACKUP template S/N^2, B camera -- same metric as the whole-exposure TSNR2_GPBBACKUP total in redux_row/exposures-daily.csv, but per petal rather than summed | 66.14333 | `petalqa['TSNR2_GPBBACKUP_B']` (per-petal table) |
-| TSNR2_GPBBACKUP_R | float32 | Per-petal GPBBACKUP template S/N^2, R camera -- same metric as the whole-exposure TSNR2_GPBBACKUP total in redux_row/exposures-daily.csv, but per petal rather than summed | 3832.7527 | `petalqa['TSNR2_GPBBACKUP_R']` (per-petal table) |
-| TSNR2_GPBBACKUP_Z | float32 | Per-petal GPBBACKUP template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_GPBBACKUP total in redux_row/exposures-daily.csv, but per petal rather than summed | 6.0208554e-06 | `petalqa['TSNR2_GPBBACKUP_Z']` (per-petal table) |
+| TSNR2_QSO_B | float32 | Per-petal QSO template S/N^2, B camera -- same metric as the whole-exposure TSNR2_QSO total in redux_row/exposures-daily.csv, but per petal rather than summed | 0.41313574 | `petalqa['TSNR2_QSO_B']` (per-petal table) |
+| TSNR2_QSO_R | float32 | Per-petal QSO template S/N^2, R camera -- same metric as the whole-exposure TSNR2_QSO total in redux_row/exposures-daily.csv, but per petal rather than summed | 1.320497 | `petalqa['TSNR2_QSO_R']` (per-petal table) |
+| TSNR2_QSO_Z | float32 | Per-petal QSO template S/N^2, Z camera -- same metric as the whole-exposure TSNR2_QSO total in redux_row/exposures-daily.csv, but per petal rather than summed | 3.21221 | `petalqa['TSNR2_QSO_Z']` (per-petal table) |
+| WORSTREADNOISE | float32 | Worst (highest) CCD read noise across this petal's cameras | 2.8247197 | `petalqa['WORSTREADNOISE']` (per-petal table) |
+| ZSKYCHI2PDF | float32 | Sky-subtraction chi^2/dof, z camera | 0.99931043 | `petalqa['ZSKYCHI2PDF']` (per-petal table) |
+| ZSKYTHRURMS | float32 | Sky-fiber throughput RMS, z camera | 0.00379174 | `petalqa['ZSKYTHRURMS']` (per-petal table) |
+| ZTHRUFRAC | float32 | Median throughput fraction, z camera | 0.9592113 | `petalqa['ZTHRUFRAC']` (per-petal table) |
 
 
 ## Offline per-exposure QA: `calibstars-<expid>.csv` -- standard-star flux calibration table
@@ -1511,14 +1556,14 @@ Row-aligned with FIBERMAP (no location columns of its own -- see project memory)
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| FIBER | int64 | Whole-focal-plane fiber number, 0-4999 -- same numbering as cframe_table/fiberqa_table's FIBER column, but NOT the (PETAL_LOC, DEVICE_LOC) index used elsewhere in this project (FIBER // 500 == PETAL_LOC always holds; DEVICE_LOC has no formula and needs a join against fiberqa_table/cframe_table) | 12 | `calibstars['FIBER']` (per-star table, indexed by FIBER) |
-| RCALIBFRAC | float64 | Ratio of r-band spectroscopic flux to model flux for this standard star (confirmed via the official DESI datamodel docs) | 0.8897678498382974 | `calibstars['RCALIBFRAC']` (per-star table, indexed by FIBER) |
-| EBV | float64 | Galactic extinction E(B-V) reddening from SFD98 | 0.0600866414606571 | `calibstars['EBV']` (per-star table, indexed by FIBER) |
-| MODEL_COLOR | float64 | G-R color of the best-fit model for this star | 0.3126283307491269 | `calibstars['MODEL_COLOR']` (per-star table, indexed by FIBER) |
 | DATA_COLOR | float64 | G-R color measured from the data for this star | 0.3331871032714844 | `calibstars['DATA_COLOR']` (per-star table, indexed by FIBER) |
+| EBV | float64 | Galactic extinction E(B-V) reddening from SFD98 | 0.0600866414606571 | `calibstars['EBV']` (per-star table, indexed by FIBER) |
+| FIBER | int64 | Whole-focal-plane fiber number, 0-4999 -- same numbering as cframe_table/fiberqa_table's FIBER column, but NOT the (PETAL_LOC, DEVICE_LOC) index used elsewhere in this project (FIBER // 500 == PETAL_LOC always holds; DEVICE_LOC has no formula and needs a join against fiberqa_table/cframe_table) | 12 | `calibstars['FIBER']` (per-star table, indexed by FIBER) |
+| MODEL_COLOR | float64 | G-R color of the best-fit model for this star | 0.3126283307491269 | `calibstars['MODEL_COLOR']` (per-star table, indexed by FIBER) |
+| RCALIBFRAC | float64 | Ratio of r-band spectroscopic flux to model flux for this standard star (confirmed via the official DESI datamodel docs) | 0.8897678498382974 | `calibstars['RCALIBFRAC']` (per-star table, indexed by FIBER) |
+| VALID | float64 | Whether this standard star was selected as good (1) for the flux calibration fit -- rejected (0) if a 3-sigma RCALIBFRAC outlier across petals, or if its G-R color differs from the model by more than 0.2*EBV | 1.0 | `calibstars['VALID']` (per-star table, indexed by FIBER) |
 | X | float64 | Focal-plane X position (mm) | -4.509812831878662 | `calibstars['X']` (per-star table, indexed by FIBER) |
 | Y | float64 | Focal-plane Y position (mm) | -228.1053924560547 | `calibstars['Y']` (per-star table, indexed by FIBER) |
-| VALID | float64 | Whether this standard star was selected as good (1) for the flux calibration fit -- rejected (0) if a 3-sigma RCALIBFRAC outlier across petals, or if its G-R color differs from the model by more than 0.2*EBV | 1.0 | `calibstars['VALID']` (per-star table, indexed by FIBER) |
 
 
 ## Exposure directory: `fiberassign-<tileid>.fits.gz` -- `FIBERASSIGN` extension
@@ -1527,71 +1572,71 @@ Row-aligned with FIBERMAP (no location columns of its own -- see project memory)
 
 | Field | Type | Description | Example value | Source |
 |---|---|---|---|---|
-| TARGETID | int64 | Unique target identifier | 48423634854746143 | `fiberassign_table['TARGETID']` (per-fiber table) |
-| PETAL_LOC | int16 | Petal (spectrograph unit) number 0-9 | 0 | `fiberassign_table['PETAL_LOC']` (per-fiber table) |
+| BGS_TARGET | int64 | BGS-specific targeting bitmask | 65537 | `fiberassign_table['BGS_TARGET']` (per-fiber table) |
+| BRICK_OBJID | int32 |  | 6175 | `fiberassign_table['BRICK_OBJID']` (per-fiber table) |
+| BRICKID | int32 |  | 272457 | `fiberassign_table['BRICKID']` (per-fiber table) |
+| BRICKNAME | <U8 |  | 2156m102 | `fiberassign_table['BRICKNAME']` (per-fiber table) |
+| DESI_TARGET | int64 | Targeting bitmask, main DARK/BRIGHT survey -- includes STD_FAINT/STD_WD/STD_BRIGHT standard-star bits | 1152921504606846976 | `fiberassign_table['DESI_TARGET']` (per-fiber table) |
 | DEVICE_LOC | int32 | Positioner device location within the petal | 311 | `fiberassign_table['DEVICE_LOC']` (per-fiber table) |
-| LOCATION | int32 | PETAL_LOC*1000+DEVICE_LOC | 311 | `fiberassign_table['LOCATION']` (per-fiber table) |
-| FIBER | int32 | Fiber number, 0-4999 across the whole focal plane -- same numbering as cframe_table/fiberqa_table/calibstars's FIBER | 0 | `fiberassign_table['FIBER']` (per-fiber table) |
-| FIBERSTATUS | int32 |  | 0 | `fiberassign_table['FIBERSTATUS']` (per-fiber table) |
-| TARGET_RA | float64 | Target RA (deg) | 215.78365050347062 | `fiberassign_table['TARGET_RA']` (per-fiber table) |
-| TARGET_DEC | float64 | Target Dec (deg) | -10.155565978245603 | `fiberassign_table['TARGET_DEC']` (per-fiber table) |
-| PMRA | float32 |  | 0.0 | `fiberassign_table['PMRA']` (per-fiber table) |
-| PMDEC | float32 |  | 0.0 | `fiberassign_table['PMDEC']` (per-fiber table) |
-| REF_EPOCH | float32 |  | 2015.5 | `fiberassign_table['REF_EPOCH']` (per-fiber table) |
-| LAMBDA_REF | float32 |  | 5400.0 | `fiberassign_table['LAMBDA_REF']` (per-fiber table) |
+| EBV | float32 |  | 0.06676148 | `fiberassign_table['EBV']` (per-fiber table) |
 | FA_TARGET | int64 | Raw fiberassign target bitmask used at assignment time | 1152921504606846976 | `fiberassign_table['FA_TARGET']` (per-fiber table) |
 | FA_TYPE | uint8 |  | 1 | `fiberassign_table['FA_TYPE']` (per-fiber table) |
-| OBJTYPE | <U3 |  | TGT | `fiberassign_table['OBJTYPE']` (per-fiber table) |
+| FIBER | int32 | Fiber number, 0-4999 across the whole focal plane -- same numbering as cframe_table/fiberqa_table/calibstars's FIBER | 0 | `fiberassign_table['FIBER']` (per-fiber table) |
 | FIBERASSIGN_X | float32 |  | 81.61246 | `fiberassign_table['FIBERASSIGN_X']` (per-fiber table) |
 | FIBERASSIGN_Y | float32 |  | -286.1761 | `fiberassign_table['FIBERASSIGN_Y']` (per-fiber table) |
-| PRIORITY | int32 |  | 2000 | `fiberassign_table['PRIORITY']` (per-fiber table) |
-| SUBPRIORITY | float64 |  | 0.7354495758341314 | `fiberassign_table['SUBPRIORITY']` (per-fiber table) |
-| OBSCONDITIONS | int32 |  | 516 | `fiberassign_table['OBSCONDITIONS']` (per-fiber table) |
-| MTL_HIGHEST | int32 |  | 4 | `fiberassign_table['MTL_HIGHEST']` (per-fiber table) |
-| MTL_WANTED | int32 |  | 4 | `fiberassign_table['MTL_WANTED']` (per-fiber table) |
-| MTL_CONTAINS | int32 |  | 4 | `fiberassign_table['MTL_CONTAINS']` (per-fiber table) |
-| RELEASE | int16 |  | 11010 | `fiberassign_table['RELEASE']` (per-fiber table) |
-| BRICKNAME | <U8 |  | 2156m102 | `fiberassign_table['BRICKNAME']` (per-fiber table) |
-| BRICKID | int32 |  | 272457 | `fiberassign_table['BRICKID']` (per-fiber table) |
-| BRICK_OBJID | int32 |  | 6175 | `fiberassign_table['BRICK_OBJID']` (per-fiber table) |
-| MORPHTYPE | <U3 |  | SER | `fiberassign_table['MORPHTYPE']` (per-fiber table) |
-| EBV | float32 |  | 0.06676148 | `fiberassign_table['EBV']` (per-fiber table) |
-| FLUX_G | float32 |  | 2.570513 | `fiberassign_table['FLUX_G']` (per-fiber table) |
-| FLUX_R | float32 |  | 8.596681 | `fiberassign_table['FLUX_R']` (per-fiber table) |
-| FLUX_Z | float32 |  | 19.957739 | `fiberassign_table['FLUX_Z']` (per-fiber table) |
-| FLUX_W1 | float32 |  | 35.844257 | `fiberassign_table['FLUX_W1']` (per-fiber table) |
-| FLUX_W2 | float32 |  | 20.74107 | `fiberassign_table['FLUX_W2']` (per-fiber table) |
-| FLUX_IVAR_G | float32 |  | 408.1576 | `fiberassign_table['FLUX_IVAR_G']` (per-fiber table) |
-| FLUX_IVAR_R | float32 |  | 171.55586 | `fiberassign_table['FLUX_IVAR_R']` (per-fiber table) |
-| FLUX_IVAR_Z | float32 |  | 29.047504 | `fiberassign_table['FLUX_IVAR_Z']` (per-fiber table) |
-| FLUX_IVAR_W1 | float32 |  | 3.1144295 | `fiberassign_table['FLUX_IVAR_W1']` (per-fiber table) |
-| FLUX_IVAR_W2 | float32 |  | 0.6790512 | `fiberassign_table['FLUX_IVAR_W2']` (per-fiber table) |
 | FIBERFLUX_G | float32 |  | 0.67957896 | `fiberassign_table['FIBERFLUX_G']` (per-fiber table) |
 | FIBERFLUX_R | float32 |  | 2.272746 | `fiberassign_table['FIBERFLUX_R']` (per-fiber table) |
 | FIBERFLUX_Z | float32 |  | 5.2763243 | `fiberassign_table['FIBERFLUX_Z']` (per-fiber table) |
+| FIBERSTATUS | int32 |  | 0 | `fiberassign_table['FIBERSTATUS']` (per-fiber table) |
 | FIBERTOTFLUX_G | float32 |  | 0.6845836 | `fiberassign_table['FIBERTOTFLUX_G']` (per-fiber table) |
 | FIBERTOTFLUX_R | float32 |  | 2.2859528 | `fiberassign_table['FIBERTOTFLUX_R']` (per-fiber table) |
 | FIBERTOTFLUX_Z | float32 |  | 5.4116664 | `fiberassign_table['FIBERTOTFLUX_Z']` (per-fiber table) |
+| FLUX_G | float32 |  | 2.570513 | `fiberassign_table['FLUX_G']` (per-fiber table) |
+| FLUX_IVAR_G | float32 |  | 408.1576 | `fiberassign_table['FLUX_IVAR_G']` (per-fiber table) |
+| FLUX_IVAR_R | float32 |  | 171.55586 | `fiberassign_table['FLUX_IVAR_R']` (per-fiber table) |
+| FLUX_IVAR_W1 | float32 |  | 3.1144295 | `fiberassign_table['FLUX_IVAR_W1']` (per-fiber table) |
+| FLUX_IVAR_W2 | float32 |  | 0.6790512 | `fiberassign_table['FLUX_IVAR_W2']` (per-fiber table) |
+| FLUX_IVAR_Z | float32 |  | 29.047504 | `fiberassign_table['FLUX_IVAR_Z']` (per-fiber table) |
+| FLUX_R | float32 |  | 8.596681 | `fiberassign_table['FLUX_R']` (per-fiber table) |
+| FLUX_W1 | float32 |  | 35.844257 | `fiberassign_table['FLUX_W1']` (per-fiber table) |
+| FLUX_W2 | float32 |  | 20.74107 | `fiberassign_table['FLUX_W2']` (per-fiber table) |
+| FLUX_Z | float32 |  | 19.957739 | `fiberassign_table['FLUX_Z']` (per-fiber table) |
+| GAIA_PHOT_BP_MEAN_MAG | float32 |  | 0.0 | `fiberassign_table['GAIA_PHOT_BP_MEAN_MAG']` (per-fiber table) |
+| GAIA_PHOT_G_MEAN_MAG | float32 |  | 0.0 | `fiberassign_table['GAIA_PHOT_G_MEAN_MAG']` (per-fiber table) |
+| GAIA_PHOT_RP_MEAN_MAG | float32 |  | 0.0 | `fiberassign_table['GAIA_PHOT_RP_MEAN_MAG']` (per-fiber table) |
+| LAMBDA_REF | float32 |  | 5400.0 | `fiberassign_table['LAMBDA_REF']` (per-fiber table) |
+| LOCATION | int32 | PETAL_LOC*1000+DEVICE_LOC | 311 | `fiberassign_table['LOCATION']` (per-fiber table) |
 | MASKBITS | int16 |  | 0 | `fiberassign_table['MASKBITS']` (per-fiber table) |
+| MORPHTYPE | <U3 |  | SER | `fiberassign_table['MORPHTYPE']` (per-fiber table) |
+| MTL_CONTAINS | int32 |  | 4 | `fiberassign_table['MTL_CONTAINS']` (per-fiber table) |
+| MTL_HIGHEST | int32 |  | 4 | `fiberassign_table['MTL_HIGHEST']` (per-fiber table) |
+| MTL_WANTED | int32 |  | 4 | `fiberassign_table['MTL_WANTED']` (per-fiber table) |
+| MWS_TARGET | int64 | MWS-specific targeting bitmask -- also where BACKUP-program exposures (program='BACKUP') flag their standard stars (GAIA_STD_FAINT/GAIA_STD_WD/GAIA_STD_BRIGHT) instead of DESI_TARGET -- confirmed real, not hypothetical (see notebooks/calibstars_linphi.ipynb) | 0 | `fiberassign_table['MWS_TARGET']` (per-fiber table) |
+| NUMOBS_INIT | int64 |  | 2 | `fiberassign_table['NUMOBS_INIT']` (per-fiber table) |
+| OBJTYPE | <U3 |  | TGT | `fiberassign_table['OBJTYPE']` (per-fiber table) |
+| OBSCONDITIONS | int32 |  | 516 | `fiberassign_table['OBSCONDITIONS']` (per-fiber table) |
+| PARALLAX | float32 |  | 0.0 | `fiberassign_table['PARALLAX']` (per-fiber table) |
+| PETAL_LOC | int16 | Petal (spectrograph unit) number 0-9 | 0 | `fiberassign_table['PETAL_LOC']` (per-fiber table) |
+| PHOTSYS | <U1 |  | S | `fiberassign_table['PHOTSYS']` (per-fiber table) |
+| PLATE_DEC | float64 |  | -10.155565978245603 | `fiberassign_table['PLATE_DEC']` (per-fiber table) |
+| PLATE_RA | float64 |  | 215.78365050347062 | `fiberassign_table['PLATE_RA']` (per-fiber table) |
+| PMDEC | float32 |  | 0.0 | `fiberassign_table['PMDEC']` (per-fiber table) |
+| PMRA | float32 |  | 0.0 | `fiberassign_table['PMRA']` (per-fiber table) |
+| PRIORITY | int32 |  | 2000 | `fiberassign_table['PRIORITY']` (per-fiber table) |
+| PRIORITY_INIT | int64 |  | 2000 | `fiberassign_table['PRIORITY_INIT']` (per-fiber table) |
+| REF_CAT | <U0 |  |  | `fiberassign_table['REF_CAT']` (per-fiber table) |
+| REF_EPOCH | float32 |  | 2015.5 | `fiberassign_table['REF_EPOCH']` (per-fiber table) |
+| REF_ID | int64 |  | 0 | `fiberassign_table['REF_ID']` (per-fiber table) |
+| RELEASE | int16 |  | 11010 | `fiberassign_table['RELEASE']` (per-fiber table) |
+| SCND_TARGET | int64 | Secondary-program targeting bitmask | 0 | `fiberassign_table['SCND_TARGET']` (per-fiber table) |
 | SERSIC | float32 |  | 0.5 | `fiberassign_table['SERSIC']` (per-fiber table) |
-| SHAPE_R | float32 |  | 1.3703187 | `fiberassign_table['SHAPE_R']` (per-fiber table) |
 | SHAPE_E1 | float32 |  | 0.3320448 | `fiberassign_table['SHAPE_E1']` (per-fiber table) |
 | SHAPE_E2 | float32 |  | -0.058419313 | `fiberassign_table['SHAPE_E2']` (per-fiber table) |
-| REF_ID | int64 |  | 0 | `fiberassign_table['REF_ID']` (per-fiber table) |
-| REF_CAT | <U0 |  |  | `fiberassign_table['REF_CAT']` (per-fiber table) |
-| GAIA_PHOT_G_MEAN_MAG | float32 |  | 0.0 | `fiberassign_table['GAIA_PHOT_G_MEAN_MAG']` (per-fiber table) |
-| GAIA_PHOT_BP_MEAN_MAG | float32 |  | 0.0 | `fiberassign_table['GAIA_PHOT_BP_MEAN_MAG']` (per-fiber table) |
-| GAIA_PHOT_RP_MEAN_MAG | float32 |  | 0.0 | `fiberassign_table['GAIA_PHOT_RP_MEAN_MAG']` (per-fiber table) |
-| PARALLAX | float32 |  | 0.0 | `fiberassign_table['PARALLAX']` (per-fiber table) |
-| PHOTSYS | <U1 |  | S | `fiberassign_table['PHOTSYS']` (per-fiber table) |
-| PRIORITY_INIT | int64 |  | 2000 | `fiberassign_table['PRIORITY_INIT']` (per-fiber table) |
-| NUMOBS_INIT | int64 |  | 2 | `fiberassign_table['NUMOBS_INIT']` (per-fiber table) |
-| DESI_TARGET | int64 | Targeting bitmask, main DARK/BRIGHT survey -- includes STD_FAINT/STD_WD/STD_BRIGHT standard-star bits | 1152921504606846976 | `fiberassign_table['DESI_TARGET']` (per-fiber table) |
-| BGS_TARGET | int64 | BGS-specific targeting bitmask | 65537 | `fiberassign_table['BGS_TARGET']` (per-fiber table) |
-| MWS_TARGET | int64 | MWS-specific targeting bitmask -- also where BACKUP-program exposures (program='BACKUP') flag their standard stars (GAIA_STD_FAINT/GAIA_STD_WD/GAIA_STD_BRIGHT) instead of DESI_TARGET -- confirmed real, not hypothetical (see notebooks/calibstars_linphi.ipynb) | 0 | `fiberassign_table['MWS_TARGET']` (per-fiber table) |
-| SCND_TARGET | int64 | Secondary-program targeting bitmask | 0 | `fiberassign_table['SCND_TARGET']` (per-fiber table) |
-| PLATE_RA | float64 |  | 215.78365050347062 | `fiberassign_table['PLATE_RA']` (per-fiber table) |
-| PLATE_DEC | float64 |  | -10.155565978245603 | `fiberassign_table['PLATE_DEC']` (per-fiber table) |
+| SHAPE_R | float32 |  | 1.3703187 | `fiberassign_table['SHAPE_R']` (per-fiber table) |
+| SUBPRIORITY | float64 |  | 0.7354495758341314 | `fiberassign_table['SUBPRIORITY']` (per-fiber table) |
+| TARGET_DEC | float64 | Target Dec (deg) | -10.155565978245603 | `fiberassign_table['TARGET_DEC']` (per-fiber table) |
+| TARGET_RA | float64 | Target RA (deg) | 215.78365050347062 | `fiberassign_table['TARGET_RA']` (per-fiber table) |
+| TARGETID | int64 | Unique target identifier | 48423634854746143 | `fiberassign_table['TARGETID']` (per-fiber table) |
 
 <!-- BEGIN telemetry appendix (generated by scripts/build_telemetry_appendix.py) -->
 
@@ -1702,21 +1747,21 @@ Shared variable `TELEMETRY_LIMITS`.
 
 | Field | Type | Example |
 |---|---|---|
-| telemetry_limits | integer | 195692 |
-| shared_variable | text | SPECTROGRAPHS_SENSORS |
-| value | text | bench_coll_temp |
-| warning_limits | ARRAY | [None, 30.0] |
 | alert_limits | ARRAY | [None, 35.0] |
-| unit_field_name | text | unit |
-| unit | text | 1 |
-| subunit_field_name | text |  |
-| subunit | text |  |
-| time_recorded | timestamp with time zone | 2020-01-06 00:59:19.809283+00:00 |
 | dos_instance | text | extern |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-01-06 00:59:19.810377+00:00 |
 | row_status_user | text | desi_writer |
 | searchable_columns | jsonb |  |
+| shared_variable | text | SPECTROGRAPHS_SENSORS |
+| subunit | text |  |
+| subunit_field_name | text |  |
+| telemetry_limits | integer | 195692 |
+| time_recorded | timestamp with time zone | 2020-01-06 00:59:19.809283+00:00 |
+| unit | text | 1 |
+| unit_field_name | text | unit |
+| value | text | bench_coll_temp |
+| warning_limits | ARRAY | [None, 30.0] |
 
 ### gfa_telemetry
 
@@ -1724,30 +1769,30 @@ Shared variable `GFA_TELEMETRY`.
 
 | Field | Type | Example |
 |---|---|---|
-| gfa_telemetry | integer | 1 |
-| last_updated | text | 2019-08-16T04:08:29.588340 |
-| status | text | READY |
-| ccdpower | double precision | 0.865 |
 | ambient | double precision | 0.449 |
-| unit | integer | 900 |
-| role | text | GUIDE900 |
-| settemp | double precision | 0.049 |
-| time_recorded | timestamp with time zone | 2019-08-16 04:08:29.593808+00:00 |
+| camerahumid | double precision |  |
+| cameratemp | double precision |  |
+| ccdpower | double precision | 0.865 |
+| ccdtemp | double precision |  |
+| coldpeltier | double precision |  |
+| cooling | integer |  |
 | dos_instance | text | extern |
+| filter | double precision |  |
+| fpga | double precision |  |
+| gfa_telemetry | integer | 1 |
+| hotpeltier | double precision |  |
+| humid2 | double precision |  |
+| humid3 | double precision |  |
+| last_updated | text | 2019-08-16T04:08:29.588340 |
+| role | text | GUIDE900 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-08-16 04:08:29.594265+00:00 |
 | row_status_user | text | desi_writer |
-| ccdtemp | double precision |  |
-| cooling | integer |  |
-| hotpeltier | double precision |  |
-| coldpeltier | double precision |  |
-| filter | double precision |  |
-| humid2 | double precision |  |
-| humid3 | double precision |  |
-| fpga | double precision |  |
-| camerahumid | double precision |  |
-| cameratemp | double precision |  |
+| settemp | double precision | 0.049 |
 | simulated | integer |  |
+| status | text | READY |
+| time_recorded | timestamp with time zone | 2019-08-16 04:08:29.593808+00:00 |
+| unit | integer | 900 |
 
 ### gfa_status
 
@@ -1755,23 +1800,23 @@ Shared variable `GFA_STATUS`.
 
 | Field | Type | Example |
 |---|---|---|
-| gfa_status | integer | 1 |
-| state | text | UNKNOWN |
 | bias_enabled | integer |  |
-| connected | integer | 0 |
 | biased | integer | 0 |
-| temp_setpoint | double precision |  |
-| last_updated | text | 2019-08-16T04:08:09.558267 |
-| unit | integer | 900 |
-| role | text | GUIDE900 |
-| time_recorded | timestamp with time zone | 2019-08-16 04:08:09.564743+00:00 |
+| connected | integer | 0 |
 | dos_instance | text | extern |
+| gfa_status | integer | 1 |
+| last_updated | text | 2019-08-16T04:08:09.558267 |
+| loopmode | integer |  |
+| role | text | GUIDE900 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-08-16 04:08:09.565335+00:00 |
 | row_status_user | text | desi_writer |
-| temp_regulation | ARRAY |  |
-| loopmode | integer |  |
 | simulated | integer |  |
+| state | text | UNKNOWN |
+| temp_regulation | ARRAY |  |
+| temp_setpoint | double precision |  |
+| time_recorded | timestamp with time zone | 2019-08-16 04:08:09.564743+00:00 |
+| unit | integer | 900 |
 
 ### calibration_telemetry
 
@@ -1779,60 +1824,60 @@ Shared variable `CALIBRATION_TELEMETRY`.
 
 | Field | Type | Example |
 |---|---|---|
-| calibration_telemetry | integer | 1 |
+| cal0_cd_i | double precision |  |
+| cal0_halogenbluefilter_i | double precision |  |
+| cal0_halogennofilter_i | double precision |  |
+| cal0_hgar_i | double precision |  |
+| cal0_humidity | double precision | 47.139384 |
+| cal0_kr_i | double precision |  |
+| cal0_leds_i | double precision |  |
+| cal0_ne_i | double precision |  |
 | cal0_temp1 | double precision | 5.4375 |
 | cal0_temp2 | double precision | 5.71875 |
-| cal0_humidity | double precision | 47.139384 |
 | cal0_temp3 | double precision | 5.03125 |
+| cal0_xe_i | double precision |  |
+| cal1_cd_i | double precision |  |
+| cal1_halogenbluefilter_i | double precision |  |
+| cal1_halogennofilter_i | double precision |  |
+| cal1_hgar_i | double precision |  |
+| cal1_humidity | double precision | 47.142437 |
+| cal1_kr_i | double precision |  |
+| cal1_leds_i | double precision |  |
+| cal1_ne_i | double precision |  |
 | cal1_temp1 | double precision | 4.96875 |
 | cal1_temp2 | double precision | 5.90625 |
 | cal1_temp3 | double precision | 5.75 |
-| cal1_humidity | double precision | 47.142437 |
+| cal1_xe_i | double precision |  |
+| cal2_cd_i | double precision |  |
+| cal2_halogenbluefilter_i | double precision |  |
+| cal2_halogennofilter_i | double precision |  |
+| cal2_hgar_i | double precision |  |
+| cal2_humidity | double precision | 46.542234 |
+| cal2_kr_i | double precision |  |
+| cal2_leds_i | double precision |  |
+| cal2_ne_i | double precision |  |
 | cal2_temp1 | double precision | 5.75 |
 | cal2_temp2 | double precision | 5.875 |
-| cal2_humidity | double precision | 46.542234 |
 | cal2_temp3 | double precision | 5.6875 |
+| cal2_xe_i | double precision |  |
+| cal3_cd_i | double precision |  |
+| cal3_halogenbluefilter_i | double precision |  |
+| cal3_halogennofilter_i | double precision |  |
+| cal3_hgar_i | double precision |  |
+| cal3_humidity | double precision | 39.837247 |
+| cal3_kr_i | double precision |  |
+| cal3_leds_i | double precision |  |
+| cal3_ne_i | double precision |  |
 | cal3_temp1 | double precision | 5.90625 |
 | cal3_temp2 | double precision | 5.53125 |
 | cal3_temp3 | double precision | 5.96875 |
-| cal3_humidity | double precision | 39.837247 |
-| time_recorded | timestamp with time zone | 2020-03-04 14:55:44.391047+00:00 |
+| cal3_xe_i | double precision |  |
+| calibration_telemetry | integer | 1 |
 | dos_instance | text | desi_20200302 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-03-04 14:55:44.403596+00:00 |
 | row_status_user | text | desi_writer |
-| cal0_leds_i | double precision |  |
-| cal0_halogenbluefilter_i | double precision |  |
-| cal0_halogennofilter_i | double precision |  |
-| cal0_cd_i | double precision |  |
-| cal0_xe_i | double precision |  |
-| cal0_ne_i | double precision |  |
-| cal0_kr_i | double precision |  |
-| cal0_hgar_i | double precision |  |
-| cal1_leds_i | double precision |  |
-| cal1_halogenbluefilter_i | double precision |  |
-| cal1_halogennofilter_i | double precision |  |
-| cal1_cd_i | double precision |  |
-| cal1_xe_i | double precision |  |
-| cal1_ne_i | double precision |  |
-| cal1_kr_i | double precision |  |
-| cal1_hgar_i | double precision |  |
-| cal2_leds_i | double precision |  |
-| cal2_halogenbluefilter_i | double precision |  |
-| cal2_halogennofilter_i | double precision |  |
-| cal2_cd_i | double precision |  |
-| cal2_xe_i | double precision |  |
-| cal2_ne_i | double precision |  |
-| cal2_kr_i | double precision |  |
-| cal2_hgar_i | double precision |  |
-| cal3_leds_i | double precision |  |
-| cal3_halogenbluefilter_i | double precision |  |
-| cal3_halogennofilter_i | double precision |  |
-| cal3_cd_i | double precision |  |
-| cal3_xe_i | double precision |  |
-| cal3_ne_i | double precision |  |
-| cal3_kr_i | double precision |  |
-| cal3_hgar_i | double precision |  |
+| time_recorded | timestamp with time zone | 2020-03-04 14:55:44.391047+00:00 |
 
 ### pc_telemetry
 
@@ -1840,30 +1885,30 @@ Shared variable `PC_TELEMETRY`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_telemetry | integer | 1 |
-| gfa_fan_in_pwm | double precision |  |
-| gfa_fan_out_pwm | double precision |  |
-| gfa_fan_in_tach | integer |  |
-| gfa_fan_out_tach | integer |  |
-| gfatime | timestamp with time zone |  |
-| pbox_temp_sensor | double precision | 22.018 |
-| gxb_temp_sensor | double precision | 21.401 |
+| adc_bb | double precision |  |
+| adc_buf | double precision |  |
+| adc_fan | double precision |  |
+| adc_gfa | double precision |  |
+| dos_instance | text | extern |
 | fpp_temp_sensor_1 | double precision | 21.891 |
 | fpp_temp_sensor_2 | double precision | 22.476 |
 | fpp_temp_sensor_3 | double precision | 21.582 |
-| temptime | timestamp with time zone | 2019-09-22 17:27:09.488194+00:00 |
+| gfa_fan_in_pwm | double precision |  |
+| gfa_fan_in_tach | integer |  |
+| gfa_fan_out_pwm | double precision |  |
+| gfa_fan_out_tach | integer |  |
+| gfatime | timestamp with time zone |  |
+| gxb_temp_sensor | double precision | 21.401 |
 | gxbcur | double precision | 1.8924 |
 | gxbtime | timestamp with time zone | 2019-09-22 17:27:09.488107+00:00 |
+| pbox_temp_sensor | double precision | 22.018 |
+| pc_telemetry | integer | 1 |
 | pcid | integer | 900 |
-| time_recorded | timestamp with time zone | 2019-09-22 17:27:09.496891+00:00 |
-| dos_instance | text | extern |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-09-22 17:27:09.497928+00:00 |
 | row_status_user | text | desi_writer |
-| adc_bb | double precision |  |
-| adc_buf | double precision |  |
-| adc_gfa | double precision |  |
-| adc_fan | double precision |  |
+| temptime | timestamp with time zone | 2019-09-22 17:27:09.488194+00:00 |
+| time_recorded | timestamp with time zone | 2019-09-22 17:27:09.496891+00:00 |
 
 ### pc_telemetry_can_fid
 
@@ -1871,25 +1916,25 @@ Shared variable `PC_TELEMETRY-CAN-FID`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_telemetry_can_fid | integer | 32765 |
-| posfid_temps_n_above_th | integer | 0 |
-| posfid_state | text | okay |
-| posfid_instatesince | double precision | 1569237682.3018453 |
-| posfid_timelastalarm | double precision | 1569237682.3018453 |
-| time | timestamp with time zone | 2019-09-23 12:43:17.181738+00:00 |
-| pcid | integer | 901 |
+| dos_instance | text | extern |
 | fid_temps | jsonb | [30.51, 30.51, 30.51, 30.51, 30.51, 30.51, 30.51,... |
 | fid_temps_max | double precision | 30.51 |
+| fid_temps_mean | double precision |  |
+| fid_temps_median | double precision |  |
+| fid_temps_n_above_th | integer |  |
 | fid_temps_quantiles | ARRAY | [30.51, 30.51, 30.51, 30.51, 30.51] |
-| temp_threshold | integer | 40 |
-| time_recorded | timestamp with time zone | 2019-09-23 12:43:17.183304+00:00 |
-| dos_instance | text | extern |
+| pc_telemetry_can_fid | integer | 32765 |
+| pcid | integer | 901 |
+| posfid_instatesince | double precision | 1569237682.3018453 |
+| posfid_state | text | okay |
+| posfid_temps_n_above_th | integer | 0 |
+| posfid_timelastalarm | double precision | 1569237682.3018453 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-09-23 12:43:17.184363+00:00 |
 | row_status_user | text | desi_writer |
-| fid_temps_n_above_th | integer |  |
-| fid_temps_mean | double precision |  |
-| fid_temps_median | double precision |  |
+| temp_threshold | integer | 40 |
+| time | timestamp with time zone | 2019-09-23 12:43:17.181738+00:00 |
+| time_recorded | timestamp with time zone | 2019-09-23 12:43:17.183304+00:00 |
 
 ### pc_telemetry_can_all
 
@@ -1897,29 +1942,29 @@ Shared variable `PC_TELEMETRY-CAN-ALL`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_telemetry_can_all | integer | 1 |
-| time | timestamp with time zone | 2019-09-22 17:30:32.019301+00:00 |
-| pcid | integer | 900 |
-| posfid_imons | jsonb | {'9000': {'900000': None, '900001': None, '900002... |
-| posfid_temps_n_above_th | integer | 0 |
-| posfid_state | text | okay |
+| dos_instance | text | extern |
 | fid_temp_quantiles | ARRAY |  |
-| temp_threshold | double precision |  |
-| posfid_sysclks | jsonb | {'9000': {'900000': 72, '900001': 72, '900002': 7... |
-| posfid_temps_quantiles | ARRAY | [34.781, 34.781, 34.781, 34.781, 34.781] |
-| posfid_instatesince | double precision | 1569173431.1526911 |
-| posfid_timelastalarm | double precision | 1569173431.1526911 |
 | fid_temps | jsonb |  |
 | fid_temps_max | double precision |  |
-| time_recorded | timestamp with time zone | 2019-09-22 17:30:37.034649+00:00 |
-| dos_instance | text | extern |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2019-09-22 17:30:37.035940+00:00 |
-| row_status_user | text | desi_writer |
+| pc_telemetry_can_all | integer | 1 |
+| pcid | integer | 900 |
+| posfid_imons | jsonb | {'9000': {'900000': None, '900001': None, '900002... |
+| posfid_instatesince | double precision | 1569173431.1526911 |
+| posfid_state | text | okay |
+| posfid_sysclks | jsonb | {'9000': {'900000': 72, '900001': 72, '900002': 7... |
 | posfid_temps | jsonb |  |
 | posfid_temps_max | double precision |  |
 | posfid_temps_mean | double precision |  |
 | posfid_temps_median | double precision |  |
+| posfid_temps_n_above_th | integer | 0 |
+| posfid_temps_quantiles | ARRAY | [34.781, 34.781, 34.781, 34.781, 34.781] |
+| posfid_timelastalarm | double precision | 1569173431.1526911 |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2019-09-22 17:30:37.035940+00:00 |
+| row_status_user | text | desi_writer |
+| temp_threshold | double precision |  |
+| time | timestamp with time zone | 2019-09-22 17:30:32.019301+00:00 |
+| time_recorded | timestamp with time zone | 2019-09-22 17:30:37.034649+00:00 |
 
 ### pc_telemetry_status
 
@@ -1927,33 +1972,33 @@ Shared variable `PC_TELEMETRY-STATUS`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_telemetry_status | integer | 17 |
-| gfa_ovrtmp | integer | 0 |
-| gfa_fan_in_en | integer |  |
-| gfa_fan_out_en | integer |  |
-| pospwr_ps1_fbk | integer |  |
-| pospwr_ps2_fbk | integer |  |
-| pospwr_ps1_en | integer |  |
-| pospwr_ps2_en | integer |  |
-| pcid | integer | 905 |
-| gfapwr_en | integer | 0 |
-| tec_ctrl | integer | 0 |
-| canbrd1_en | integer | 1 |
-| canbrd2_en | integer | 1 |
 | buff_en1 | integer | 1 |
 | buff_en2 | integer | 1 |
-| fxc_okay | integer | 1 |
-| ccdbiasenabled | integer | 0 |
-| ccdbias | integer | 0 |
-| telemetryfault | integer |  |
+| canbrd1_en | integer | 1 |
+| canbrd2_en | integer | 1 |
 | canbusfault | integer |  |
-| time_recorded | timestamp with time zone | 2019-09-22 19:22:02.599055+00:00 |
+| ccdbias | integer | 0 |
+| ccdbiasenabled | integer | 0 |
 | dos_instance | text | extern |
+| fxc_okay | integer | 1 |
+| gfa_fan_in_en | integer |  |
+| gfa_fan_out_en | integer |  |
+| gfa_ovrtmp | integer | 0 |
+| gfapwr_en | integer | 0 |
+| pc_telemetry_status | integer | 17 |
+| pcid | integer | 905 |
+| pospwr_ps1_en | integer |  |
+| pospwr_ps1_fbk | integer |  |
+| pospwr_ps2_en | integer |  |
+| pospwr_ps2_fbk | integer |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-09-22 19:22:02.600026+00:00 |
 | row_status_user | text | desi_writer |
 | status | integer |  |
+| tec_ctrl | integer | 0 |
+| telemetryfault | integer |  |
 | time | timestamp with time zone |  |
+| time_recorded | timestamp with time zone | 2019-09-22 19:22:02.599055+00:00 |
 
 ### pbpower_pboutlets
 
@@ -1961,6 +2006,7 @@ Shared variable `PBPOWER_PBOUTLETS`.
 
 | Field | Type | Example |
 |---|---|---|
+| dos_instance | text | gfas_20191021 |
 | pbpower_pboutlets | integer | 1 |
 | petalbox0 | integer | 0 |
 | petalbox1 | integer | 0 |
@@ -1972,11 +2018,10 @@ Shared variable `PBPOWER_PBOUTLETS`.
 | petalbox7 | integer | 0 |
 | petalbox8 | integer | 0 |
 | petalbox9 | integer |  |
-| time_recorded | timestamp with time zone | 2019-10-21 13:43:36.000545+00:00 |
-| dos_instance | text | gfas_20191021 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-10-21 13:43:36.001236+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2019-10-21 13:43:36.000545+00:00 |
 
 ### pbpower_fxc
 
@@ -1984,13 +2029,13 @@ Shared variable `PBPOWER_FXC`.
 
 | Field | Type | Example |
 |---|---|---|
-| pbpower_fxc | integer | 1 |
-| fxc | integer |  |
-| time_recorded | timestamp with time zone | 2019-10-21 13:43:32.778522+00:00 |
 | dos_instance | text | extern |
+| fxc | integer |  |
+| pbpower_fxc | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-10-21 13:43:32.778996+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2019-10-21 13:43:32.778522+00:00 |
 
 ### etc_telemetry
 
@@ -1998,71 +2043,71 @@ Shared variable `ETC_TELEMETRY`.
 
 | Field | Type | Example |
 |---|---|---|
-| etc_telemetry | integer | 1 |
-| expid | integer |  |
-| seeing | double precision | 1.0 |
-| transparency | double precision | 0.8 |
-| skylevel | double precision | 21.0 |
-| time_recorded | timestamp with time zone | 2020-04-22 14:35:59.250512+00:00 |
+| about_to_finish | integer |  |
+| about_to_split | integer |  |
+| background | double precision |  |
+| cosmics_split | double precision |  |
+| desi_count | integer |  |
+| desietc | text |  |
 | dos_instance | text | desisim_20200401 |
+| efftime | double precision |  |
+| efftime_tot | double precision |  |
+| etc_proc | integer |  |
+| etc_ready | integer |  |
+| etc_start_time | text |  |
+| etc_stop_src | text |  |
+| etc_stop_time | text |  |
+| etc_telemetry | integer | 1 |
+| etc_updated | text |  |
+| expid | integer |  |
+| ffrac | double precision |  |
+| ffrac_avg | double precision |  |
+| ffrac_bgs | double precision |  |
+| ffrac_elg | double precision |  |
+| ffrac_psf | double precision |  |
+| gfa_count | integer |  |
+| img_proc | integer |  |
+| img_start_time | text |  |
+| img_stop_src | text |  |
+| img_stop_time | text |  |
+| max_exptime | double precision |  |
+| maxsplit | integer |  |
+| next_split | double precision |  |
+| nts_program | text |  |
+| proj_efftime | double precision |  |
+| realtime | double precision |  |
+| realtime_tot | double precision |  |
+| rel_rotrate | double precision |  |
+| remaining | double precision |  |
+| req_efftime | double precision |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-04-22 14:35:59.251726+00:00 |
 | row_status_user | text | desi_writer |
-| simulated | integer |  |
-| img_proc | integer |  |
-| etc_updated | text |  |
-| etc_proc | integer |  |
-| etc_ready | integer |  |
-| desietc | text |  |
-| gfa_count | integer |  |
-| sky_count | integer |  |
-| desi_count | integer |  |
-| signal | double precision |  |
-| background | double precision |  |
-| efftime | double precision |  |
-| realtime | double precision |  |
-| efftime_tot | double precision |  |
-| realtime_tot | double precision |  |
-| remaining | double precision |  |
-| proj_efftime | double precision |  |
-| next_split | double precision |  |
-| splittable | integer |  |
-| req_efftime | double precision |  |
 | sbprof | text |  |
-| max_exptime | double precision |  |
-| cosmics_split | double precision |  |
-| img_start_time | text |  |
+| seeing | double precision | 1.0 |
 | seeing_updated | text |  |
-| ffrac_psf | double precision |  |
-| ffrac | double precision |  |
-| etc_start_time | text |  |
+| signal | double precision |  |
+| simulated | integer |  |
+| sky_count | integer |  |
+| skylevel | double precision | 21.0 |
 | skylevel_updated | text |  |
-| etc_stop_time | text |  |
-| etc_stop_src | text |  |
-| about_to_split | integer |  |
-| split_requested | integer |  |
-| stop_requested | integer |  |
-| about_to_finish | integer |  |
-| will_not_finish | integer |  |
-| ffrac_avg | double precision |  |
-| thru_avg | double precision |  |
-| transparency_updated | text |  |
-| maxsplit | integer |  |
-| warning_time | integer |  |
-| img_stop_time | text |  |
-| img_stop_src | text |  |
-| ffrac_elg | double precision |  |
-| ffrac_bgs | double precision |  |
-| transp | double precision |  |
-| speed_dark | double precision |  |
-| speed_bright | double precision |  |
 | speed_backup | double precision |  |
-| speed_dark_nts | double precision |  |
-| speed_bright_nts | double precision |  |
 | speed_backup_nts | double precision |  |
-| rel_rotrate | double precision |  |
+| speed_bright | double precision |  |
+| speed_bright_nts | double precision |  |
+| speed_dark | double precision |  |
+| speed_dark_nts | double precision |  |
+| split_requested | integer |  |
+| splittable | integer |  |
 | start_time | text |  |
-| nts_program | text |  |
+| stop_requested | integer |  |
+| thru_avg | double precision |  |
+| time_recorded | timestamp with time zone | 2020-04-22 14:35:59.250512+00:00 |
+| transp | double precision |  |
+| transparency | double precision | 0.8 |
+| transparency_updated | text |  |
+| warning_time | integer |  |
+| will_not_finish | integer |  |
 
 ### fvc_camerastatus
 
@@ -2070,21 +2115,21 @@ Shared variable `FVC_CAMERASTATUS`.
 
 | Field | Type | Example |
 |---|---|---|
-| fvc_camerastatus | integer | 1 |
 | controller_open | integer | 1 |
-| reset | integer | 1 |
-| initialized | integer | 1 |
-| shutter_open | integer | 0 |
-| fan_on | integer | 1 |
-| temp_degc | double precision | -999.0 |
-| exptime_sec | double precision | 0.0 |
-| psf_pixels | double precision | 2.037 |
-| last_updated | text | 2019-03-31T18:53:11.680127 |
-| time_recorded | timestamp with time zone | 2019-03-31 18:53:11.696556+00:00 |
 | dos_instance | text | extern |
+| exptime_sec | double precision | 0.0 |
+| fan_on | integer | 1 |
+| fvc_camerastatus | integer | 1 |
+| initialized | integer | 1 |
+| last_updated | text | 2019-03-31T18:53:11.680127 |
+| psf_pixels | double precision | 2.037 |
+| reset | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-03-31 18:53:11.699890+00:00 |
 | row_status_user | text | desi_writer |
+| shutter_open | integer | 0 |
+| temp_degc | double precision | -999.0 |
+| time_recorded | timestamp with time zone | 2019-03-31 18:53:11.696556+00:00 |
 
 ### ocs_positioning
 
@@ -2092,45 +2137,45 @@ Shared variable `OCS_POSITIONING`.
 
 | Field | Type | Example |
 |---|---|---|
-| ocs_positioning | integer | 1 |
-| expid | integer | 56197 |
-| targets | integer | 5000 |
-| iteration | integer | 0 |
-| rms | double precision | 0.0632 |
-| enabled | integer | 4208 |
-| disabled | integer | 773 |
-| ontarget | integer | 85 |
-| fraction | double precision | 0.0202 |
 | converged | integer | 0 |
-| last_expid | integer |  |
-| last_targets | integer |  |
-| last_iteration | integer |  |
-| last_rms | double precision |  |
-| last_enabled | integer |  |
-| last_disabled | integer |  |
-| last_ontarget | integer |  |
-| last_fraction | double precision |  |
-| last_converged | integer |  |
-| time_recorded | timestamp with time zone | 2020-06-04 04:56:53.140581+00:00 |
+| cvgfraction | double precision |  |
+| disabled | integer | 773 |
 | dos_instance | text | desisim_20200526 |
+| enabled | integer | 4208 |
+| expid | integer | 56197 |
+| fraction | double precision | 0.0202 |
+| iteration | integer | 0 |
+| last_converged | integer |  |
+| last_cvgfraction | double precision |  |
+| last_disabled | integer |  |
+| last_enabled | integer |  |
+| last_expid | integer |  |
+| last_fraction | double precision |  |
+| last_iteration | integer |  |
+| last_last_expid | integer |  |
+| last_loop_converged | integer |  |
+| last_notontarget | integer |  |
+| last_onfraction | double precision |  |
+| last_ontarget | integer |  |
+| last_posrms | double precision |  |
+| last_rms | double precision |  |
+| last_targets | integer |  |
+| last_turbrms | double precision |  |
+| loop_converged | integer |  |
+| notontarget | integer |  |
+| ocs_positioning | integer | 1 |
+| onfraction | double precision |  |
+| ontarget | integer | 85 |
+| posrms | double precision |  |
+| rms | double precision | 0.0632 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-06-04 04:56:53.141723+00:00 |
 | row_status_user | text | desi_writer |
-| onfraction | double precision |  |
-| cvgfraction | double precision |  |
-| loop_converged | integer |  |
-| last_onfraction | double precision |  |
-| last_cvgfraction | double precision |  |
-| last_loop_converged | integer |  |
-| last_last_expid | integer |  |
+| targets | integer | 5000 |
+| time_recorded | timestamp with time zone | 2020-06-04 04:56:53.140581+00:00 |
 | trms | double precision |  |
-| posrms | double precision |  |
-| turbrms | double precision |  |
-| notontarget | integer |  |
-| last_posrms | double precision |  |
-| last_turbrms | double precision |  |
-| last_notontarget | integer |  |
 | turbclip | integer |  |
+| turbrms | double precision |  |
 
 ### environmentmonitor_dome
 
@@ -2138,65 +2183,65 @@ Shared variable `ENVIRONMENTMONITOR_DOME`.
 
 | Field | Type | Example |
 |---|---|---|
-| environmentmonitor_dome | integer | 1 |
-| dome_timestamp | text | 2019-03-27 03:10:14 |
-| platform | double precision | -99.9 |
-| stairs_upper | double precision | -99.9 |
-| stairs_mid | double precision | -99.9 |
-| stairs_lower | double precision | -99.9 |
-| dome_left_upper | double precision | -99.9 |
-| dome_left_lower | double precision | -99.9 |
-| dome_back_upper | double precision | -99.9 |
+| b29fan | integer |  |
+| between_twilight | integer |  |
+| c_floor | double precision | 12.5 |
+| calibration_comment | text |  |
+| calibration_state | text |  |
+| calibration_trigger | integer |  |
+| catwalk_dewpoint | double precision |  |
+| catwalk_humidity | double precision |  |
+| catwalk_split | double precision |  |
+| catwalk_temperature | double precision |  |
 | dome_back_lower | double precision | -99.9 |
-| dome_right_upper | double precision | -99.9 |
+| dome_back_upper | double precision | -99.9 |
+| dome_circulation_fan | double precision |  |
+| dome_floor_ne | double precision |  |
+| dome_floor_nw | double precision |  |
+| dome_floor_s | double precision |  |
+| dome_left_lower | double precision | -99.9 |
+| dome_left_upper | double precision | -99.9 |
 | dome_right_lower | double precision | -99.9 |
-| lcr_ceiling | double precision | 14.9 |
-| lcr_n_wall_inside | double precision | 14.9 |
-| lcr_w_wall_inside | double precision | 14.6 |
-| lcr_floor | double precision | 13.6 |
-| shack_ceiling | double precision | 15.9 |
-| shack_wall | double precision | 14.3 |
+| dome_right_upper | double precision | -99.9 |
+| dome_timestamp | text | 2019-03-27 03:10:14 |
+| dos_instance | text | extern |
+| environmentmonitor_dome | integer | 1 |
+| glycol | double precision | -3.4 |
 | lcr_ambient_n | double precision | 14.5 |
 | lcr_ambient_s | double precision | 15.4 |
+| lcr_ceiling | double precision | 14.9 |
+| lcr_floor | double precision | 13.6 |
+| lcr_n_wall_inside | double precision | 14.9 |
 | lcr_n_wall_outside | double precision | 12.3 |
+| lcr_w_wall_inside | double precision | 14.6 |
 | lcr_w_wall_outside | double precision | 12.9 |
-| c_floor | double precision | 12.5 |
-| telescope_base | double precision | 12.1 |
-| utility_room | double precision | 15.4 |
-| utility_n_wall | double precision | 14.9 |
-| scr_e_wall_coude | double precision | 12.5 |
-| scr_e_wall_computer | double precision | 13.4 |
-| scr_roof | double precision | 13.7 |
-| scr_roof_ambient | double precision | 13.3 |
-| glycol | double precision | -3.4 |
+| lights_high | integer |  |
+| lights_low | integer |  |
+| louvers_left | ARRAY |  |
+| louvers_right | ARRAY |  |
 | main_floor | double precision |  |
-| time_recorded | timestamp with time zone | 2019-03-27 03:10:16.733842+00:00 |
-| dos_instance | text | extern |
+| mirror_cooling | integer |  |
+| mirror_cover | integer |  |
+| mirror_ventfans | integer |  |
+| platform | double precision | -99.9 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-03-27 03:10:16.741833+00:00 |
 | row_status_user | text | desi_writer |
-| shutter_upper | integer |  |
+| scr_e_wall_computer | double precision | 13.4 |
+| scr_e_wall_coude | double precision | 12.5 |
+| scr_roof | double precision | 13.7 |
+| scr_roof_ambient | double precision | 13.3 |
+| shack_ceiling | double precision | 15.9 |
+| shack_wall | double precision | 14.3 |
 | shutter_lower | integer |  |
-| lights_high | integer |  |
-| lights_low | integer |  |
-| mirror_cover | integer |  |
-| mirror_cooling | integer |  |
-| catwalk_temperature | double precision |  |
-| catwalk_split | double precision |  |
-| catwalk_humidity | double precision |  |
-| catwalk_dewpoint | double precision |  |
-| mirror_ventfans | integer |  |
-| dome_floor_s | double precision |  |
-| dome_floor_ne | double precision |  |
-| dome_floor_nw | double precision |  |
-| between_twilight | integer |  |
-| calibration_comment | text |  |
-| calibration_trigger | integer |  |
-| louvers_left | ARRAY |  |
-| louvers_right | ARRAY |  |
-| calibration_state | text |  |
-| b29fan | integer |  |
-| dome_circulation_fan | double precision |  |
+| shutter_upper | integer |  |
+| stairs_lower | double precision | -99.9 |
+| stairs_mid | double precision | -99.9 |
+| stairs_upper | double precision | -99.9 |
+| telescope_base | double precision | 12.1 |
+| time_recorded | timestamp with time zone | 2019-03-27 03:10:16.733842+00:00 |
+| utility_n_wall | double precision | 14.9 |
+| utility_room | double precision | 15.4 |
 
 ### environmentmonitor_ups
 
@@ -2204,42 +2249,42 @@ Shared variable `ENVIRONMENTMONITOR_UPS`.
 
 | Field | Type | Example |
 |---|---|---|
-| environmentmonitor_ups | integer | 1 |
-| ups_timestamp | text | 2019-03-27 03:10:14 |
-| status | text | System Normal - On Line(7) |
-| state_output | text | On(1) |
-| state_charger | text | Battery String is Resting(4) |
-| state_battery_health | integer | 86 |
-| battery_test_started | text | false(0) |
-| batter_test_result | text | Passed(2) |
+| alarm_check_battery | integer | 0 |
 | alarm_major | integer | 0 |
 | alarm_on | integer | 0 |
 | alarm_shutdown_imminent | integer | 0 |
-| alarm_check_battery | integer | 0 |
-| battery_seconds_left | double precision | 10458.0 |
-| battery_percent_left | double precision | 100.0 |
 | ambient_temp | double precision | 17.4 |
+| batter_test_result | text | Passed(2) |
+| battery_percent_left | double precision | 100.0 |
+| battery_seconds_left | double precision | 10458.0 |
+| battery_test_started | text | false(0) |
 | batterytemp | double precision | 16.7 |
-| input_volts_phase_a | double precision | 278.1 |
-| input_volts_phase_b | double precision | 273.4 |
-| input_volts_phase_c | double precision | 274.4 |
-| input_total_amps | double precision | 44.3 |
-| output_watts_phase_a | double precision | 2200.0 |
-| output_watts_phase_b | double precision | 4200.0 |
-| output_watts_phase_c | double precision | 3100.0 |
-| output_volt_amps_phase_a | double precision | 2400.0 |
-| output_volt_amps_phase_b | double precision | 4400.0 |
-| output_volt_amps_phase_c | double precision | 3500.0 |
-| time_recorded | timestamp with time zone | 2019-03-27 03:10:14.728242+00:00 |
-| dos_instance | text | extern |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2019-03-27 03:10:14.735143+00:00 |
-| row_status_user | text | desi_writer |
 | between_twilight | integer |  |
+| dos_instance | text | extern |
+| environmentmonitor_ups | integer | 1 |
 | input_phase_a | double precision |  |
 | input_phase_b | double precision |  |
 | input_phase_c | double precision |  |
+| input_total_amps | double precision | 44.3 |
+| input_volts_phase_a | double precision | 278.1 |
+| input_volts_phase_b | double precision | 273.4 |
+| input_volts_phase_c | double precision | 274.4 |
 | npos | integer |  |
+| output_volt_amps_phase_a | double precision | 2400.0 |
+| output_volt_amps_phase_b | double precision | 4400.0 |
+| output_volt_amps_phase_c | double precision | 3500.0 |
+| output_watts_phase_a | double precision | 2200.0 |
+| output_watts_phase_b | double precision | 4200.0 |
+| output_watts_phase_c | double precision | 3100.0 |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2019-03-27 03:10:14.735143+00:00 |
+| row_status_user | text | desi_writer |
+| state_battery_health | integer | 86 |
+| state_charger | text | Battery String is Resting(4) |
+| state_output | text | On(1) |
+| status | text | System Normal - On Line(7) |
+| time_recorded | timestamp with time zone | 2019-03-27 03:10:14.728242+00:00 |
+| ups_timestamp | text | 2019-03-27 03:10:14 |
 
 ### environmentmonitor_computer
 
@@ -2247,20 +2292,20 @@ Shared variable `ENVIRONMENTMONITOR_COMPUTER`.
 
 | Field | Type | Example |
 |---|---|---|
-| environmentmonitor_computer | integer | 1 |
-| compterroom_timestamp | text | 2019-03-27 03:10:14 |
-| humidity | double precision | 26.5 |
-| dewpoint | double precision | -1.4 |
 | ambient_temp | double precision | 17.9 |
-| hygrometer_temp | double precision | 18.2 |
-| time_recorded | timestamp with time zone | 2019-03-27 03:10:15.730868+00:00 |
+| between_twilight | integer |  |
+| compterroom_timestamp | text | 2019-03-27 03:10:14 |
+| dewpoint | double precision | -1.4 |
 | dos_instance | text | extern |
+| environmentmonitor_computer | integer | 1 |
+| glycol_in | double precision |  |
+| glycol_return | double precision |  |
+| humidity | double precision | 26.5 |
+| hygrometer_temp | double precision | 18.2 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-03-27 03:10:15.736809+00:00 |
 | row_status_user | text | desi_writer |
-| glycol_in | double precision |  |
-| glycol_return | double precision |  |
-| between_twilight | integer |  |
+| time_recorded | timestamp with time zone | 2019-03-27 03:10:15.730868+00:00 |
 
 ### tcs_info
 
@@ -2268,65 +2313,65 @@ Shared variable `TCS_INFO`.
 
 | Field | Type | Example |
 |---|---|---|
-| tcs_info | integer | 1 |
-| tcs_timestamp | text |  |
-| date_ut | text | 2019-01-31 17:02:26.967 |
-| st | text |  |
-| mjd | double precision | 58514.710463 |
-| zd | double precision | 73.349899 |
 | airmass | double precision | 3.455252 |
-| parallactic | double precision | 62.31074 |
-| moon_ra | double precision | 265.540181 |
-| moon_dec | double precision | -20.668064 |
-| tracking | integer | 0 |
-| slew_timer | double precision | 0.0 |
-| beyond_pole | integer | 0 |
-| mount_incontrol | integer | 0 |
-| mount_inposition | integer | 0 |
-| mount_ha | double precision | 89.502176 |
-| mount_ha_sexagesimal | text | +05:58:00.522 |
-| mount_dec | double precision | 31.967558 |
-| mount_dec_sexagesimal | text | +031:58:03.209 |
-| mount_az | double precision | 297.694236 |
-| mount_az_sexagesimal | text | 297:41:39.251 |
-| mount_el | double precision | 16.650101 |
-| mount_el_sexagesimal | text | 16:39:00.362 |
-| mount_offset_ra | double precision | 0.0 |
-| mount_offset_dec | double precision | 0.0 |
-| sky_ra | double precision | 184.894802 |
-| sky_ra_sexagesimal | text | 12:19:34.753 |
-| sky_dec | double precision | 32.070716 |
-| sky_dec_sexagesimal | text | +32:04:14.579 |
-| target_ra | double precision | 262.75577 |
-| target_ra_sexagesimal | text | 17:31:01.385 |
-| target_dec | double precision | 31.9633 |
-| target_dec_sexagesimal | text | +31:57:47.880 |
-| target_az | double precision | 273.018266 |
-| target_az_sexagesimal | text | 273:01:05.759 |
-| target_el | double precision | 80.070596 |
-| target_el_sexagesimal | text | 80:04:14.147 |
-| target_offset_ra | double precision | 0.0 |
-| target_offset_dec | double precision | 0.0 |
-| epoch | double precision | 2000.0 |
-| equinox | double precision | 2000.0 |
-| guider_offset_ra | double precision | 0.0 |
-| guider_offset_dec | double precision | 0.0 |
-| at_zenith | integer | 0 |
-| at_whitespot | integer | 0 |
 | at_se_annex | integer | 0 |
+| at_whitespot | integer | 0 |
+| at_zenith | integer | 0 |
+| beyond_pole | integer | 0 |
+| connected | integer | 1 |
+| date_ut | text | 2019-01-31 17:02:26.967 |
 | dome_az | double precision | 297.694236 |
 | dome_inposition | integer | 0 |
-| mirror_ready | integer | 0 |
-| time_recorded | timestamp with time zone | 2019-01-31 17:02:27.417953+00:00 |
-| connected | integer | 1 |
-| tcs_state | text | READY |
 | dos_instance | text | klaus |
+| epoch | double precision | 2000.0 |
+| equinox | double precision | 2000.0 |
+| glycol | double precision |  |
+| guider_offset_dec | double precision | 0.0 |
+| guider_offset_ra | double precision | 0.0 |
+| mirror_ready | integer | 0 |
+| mjd | double precision | 58514.710463 |
+| moon_dec | double precision | -20.668064 |
+| moon_ra | double precision | 265.540181 |
+| moon_sep | double precision |  |
+| mount_az | double precision | 297.694236 |
+| mount_az_sexagesimal | text | 297:41:39.251 |
+| mount_dec | double precision | 31.967558 |
+| mount_dec_sexagesimal | text | +031:58:03.209 |
+| mount_el | double precision | 16.650101 |
+| mount_el_sexagesimal | text | 16:39:00.362 |
+| mount_ha | double precision | 89.502176 |
+| mount_ha_sexagesimal | text | +05:58:00.522 |
+| mount_incontrol | integer | 0 |
+| mount_inposition | integer | 0 |
+| mount_offset_dec | double precision | 0.0 |
+| mount_offset_ra | double precision | 0.0 |
+| parallactic | double precision | 62.31074 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-01-31 17:02:27.426671+00:00 |
 | row_status_user | text | desi_writer |
-| glycol | double precision |  |
 | simulated | integer |  |
-| moon_sep | double precision |  |
+| sky_dec | double precision | 32.070716 |
+| sky_dec_sexagesimal | text | +32:04:14.579 |
+| sky_ra | double precision | 184.894802 |
+| sky_ra_sexagesimal | text | 12:19:34.753 |
+| slew_timer | double precision | 0.0 |
+| st | text |  |
+| target_az | double precision | 273.018266 |
+| target_az_sexagesimal | text | 273:01:05.759 |
+| target_dec | double precision | 31.9633 |
+| target_dec_sexagesimal | text | +31:57:47.880 |
+| target_el | double precision | 80.070596 |
+| target_el_sexagesimal | text | 80:04:14.147 |
+| target_offset_dec | double precision | 0.0 |
+| target_offset_ra | double precision | 0.0 |
+| target_ra | double precision | 262.75577 |
+| target_ra_sexagesimal | text | 17:31:01.385 |
+| tcs_info | integer | 1 |
+| tcs_state | text | READY |
+| tcs_timestamp | text |  |
+| time_recorded | timestamp with time zone | 2019-01-31 17:02:27.417953+00:00 |
+| tracking | integer | 0 |
+| zd | double precision | 73.349899 |
 
 ### ocs_obsinfo
 
@@ -2334,16 +2379,16 @@ Shared variable `OCS_OBSINFO`.
 
 | Field | Type | Example |
 |---|---|---|
-| ocs_obsinfo | integer | 1 |
-| observers | text | DESIObserver |
+| dos_instance | text | desisim_20200729 |
 | lead | text | RunManager |
+| observers | text | DESIObserver |
+| ocs_obsinfo | integer | 1 |
 | program | text | Commissioning |
 | propid | text | 2019B-5000 |
-| time_recorded | timestamp with time zone | 2020-07-29 20:14:24.906300+00:00 |
-| dos_instance | text | desisim_20200729 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-07-29 20:14:24.906966+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-07-29 20:14:24.906300+00:00 |
 
 ### skycam_telemetry
 
@@ -2351,23 +2396,23 @@ Shared variable `SKYCAM_TELEMETRY`.
 
 | Field | Type | Example |
 |---|---|---|
-| skycam_telemetry | integer | 1 |
-| last_updated | text | 2020-09-10T20:58:58.233933 |
-| unit | integer | 1 |
-| role | text | SKYCAM1 |
+| ccdpower | double precision | 0.0 |
 | ccdtemp | double precision | 14.94 |
+| cooling | integer | 1 |
+| dos_instance | text | skytest |
 | fanenabled | integer | 2 |
 | fanpower | integer | 50 |
-| settemp | double precision | 15.0 |
-| ccdpower | double precision | 0.0 |
-| cooling | integer | 1 |
-| status | text | SUCCESS |
-| time_recorded | timestamp with time zone | 2020-09-10 20:58:58.234542+00:00 |
-| dos_instance | text | skytest |
+| last_updated | text | 2020-09-10T20:58:58.233933 |
+| role | text | SKYCAM1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-09-10 20:58:58.235215+00:00 |
 | row_status_user | text | desi_writer |
+| settemp | double precision | 15.0 |
 | simulated | integer |  |
+| skycam_telemetry | integer | 1 |
+| status | text | SUCCESS |
+| time_recorded | timestamp with time zone | 2020-09-10 20:58:58.234542+00:00 |
+| unit | integer | 1 |
 
 ### ocs_gfadata
 
@@ -2375,7 +2420,7 @@ Shared variable `OCS_GFADATA`.
 
 | Field | Type | Example |
 |---|---|---|
-| ocs_gfadata | integer | 1 |
+| dos_instance | text | extern |
 | dtheta | double precision |  |
 | eta0 | double precision |  |
 | f1 | double precision |  |
@@ -2390,6 +2435,7 @@ Shared variable `OCS_GFADATA`.
 | magoff | double precision | 0.6 |
 | ngfa | integer |  |
 | ngood | integer |  |
+| ocs_gfadata | integer | 1 |
 | pixscale | double precision |  |
 | project | text |  |
 | psi | double precision |  |
@@ -2397,6 +2443,9 @@ Shared variable `OCS_GFADATA`.
 | rmsx | double precision |  |
 | rmsy | double precision |  |
 | rnutat | double precision |  |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2020-12-18 03:57:13.861459+00:00 |
+| row_status_user | text | desi_writer |
 | rpolar | double precision |  |
 | rprecess | double precision |  |
 | rtheta | double precision |  |
@@ -2410,13 +2459,9 @@ Shared variable `OCS_GFADATA`.
 | tempscale | double precision |  |
 | theta1 | double precision |  |
 | thetacorr | double precision |  |
+| time_recorded | timestamp with time zone | 2020-12-18 03:57:13.859744+00:00 |
 | xi0 | double precision |  |
 | zd | double precision |  |
-| time_recorded | timestamp with time zone | 2020-12-18 03:57:13.859744+00:00 |
-| dos_instance | text | extern |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2020-12-18 03:57:13.861459+00:00 |
-| row_status_user | text | desi_writer |
 
 ### sky_skylevel
 
@@ -2424,15 +2469,15 @@ Shared variable `SKY_SKYLEVEL`.
 
 | Field | Type | Example |
 |---|---|---|
-| sky_skylevel | integer | 366587 |
-| time_recorded | timestamp with time zone | 2025-10-20 07:40:33.001003+00:00 |
+| average | double precision | 1.464 |
 | dos_instance | text | desi_20251019 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2025-10-20 07:40:33.002374+00:00 |
 | row_status_user | text | desi_writer |
-| average | double precision | 1.464 |
-| skycam1 | double precision | 1.39 |
+| sky_skylevel | integer | 366587 |
 | skycam0 | double precision | 1.527 |
+| skycam1 | double precision | 1.39 |
+| time_recorded | timestamp with time zone | 2025-10-20 07:40:33.001003+00:00 |
 
 ### lut_configuration
 
@@ -2440,18 +2485,18 @@ Shared variable `LUT_CONFIGURATION`.
 
 | Field | Type | Example |
 |---|---|---|
-| lut_configuration | integer | 1 |
-| usetellut | integer | 1 |
-| usetemplut | integer | 1 |
-| useztrim | integer | 0 |
-| temp0 | double precision | 7.0 |
-| tellutmode | ARRAY | [1, 1, 1, 1, 1, 1] |
-| useaos | integer | 0 |
-| time_recorded | timestamp with time zone | 2021-02-19 15:36:54.122372+00:00 |
 | dos_instance | text | desi_20210218 |
+| lut_configuration | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-02-19 15:36:54.123605+00:00 |
 | row_status_user | text | desi_writer |
+| tellutmode | ARRAY | [1, 1, 1, 1, 1, 1] |
+| temp0 | double precision | 7.0 |
+| time_recorded | timestamp with time zone | 2021-02-19 15:36:54.122372+00:00 |
+| useaos | integer | 0 |
+| usetellut | integer | 1 |
+| usetemplut | integer | 1 |
+| useztrim | integer | 0 |
 
 ### lut_lookup
 
@@ -2459,22 +2504,22 @@ Shared variable `LUT_LOOKUP`.
 
 | Field | Type | Example |
 |---|---|---|
-| lut_lookup | integer | 1 |
 | az | double precision | 65.122662 |
-| el | double precision | 89.826659 |
-| temperature | double precision | 10.47 |
-| use_ztrim | integer | 0 |
-| use_temp | integer | 1 |
-| use_table | integer | 1 |
-| use_aos | integer | 0 |
-| hexapod | ARRAY | [1140.0, -480.0, 371.835, -3.0, 25.0, 0.0, 0.0] |
-| time_recorded | timestamp with time zone | 2021-02-19 19:13:35.408225+00:00 |
 | dos_instance | text | desi_20210218 |
+| el | double precision | 89.826659 |
+| hexapod | ARRAY | [1140.0, -480.0, 371.835, -3.0, 25.0, 0.0, 0.0] |
+| lut_lookup | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-02-19 19:13:35.409404+00:00 |
 | row_status_user | text | desi_writer |
 | tel_lookup | ARRAY |  |
 | temp_lookup | ARRAY |  |
+| temperature | double precision | 10.47 |
+| time_recorded | timestamp with time zone | 2021-02-19 19:13:35.408225+00:00 |
+| use_aos | integer | 0 |
+| use_table | integer | 1 |
+| use_temp | integer | 1 |
+| use_ztrim | integer | 0 |
 
 ### etc_seeing
 
@@ -2482,14 +2527,14 @@ Shared variable `ETC_SEEING`.
 
 | Field | Type | Example |
 |---|---|---|
-| etc_seeing | integer | 1 |
-| seeing | double precision | nan |
-| last_updated | text | 2021-03-10T11:51:50.894211 |
-| time_recorded | timestamp with time zone | 2021-03-10 11:51:50.899488+00:00 |
 | dos_instance | text | desi_20210309 |
+| etc_seeing | integer | 1 |
+| last_updated | text | 2021-03-10T11:51:50.894211 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-03-10 11:51:50.900023+00:00 |
 | row_status_user | text | desi_writer |
+| seeing | double precision | nan |
+| time_recorded | timestamp with time zone | 2021-03-10 11:51:50.899488+00:00 |
 
 ### etc_skylevel
 
@@ -2497,14 +2542,14 @@ Shared variable `ETC_SKYLEVEL`.
 
 | Field | Type | Example |
 |---|---|---|
-| etc_skylevel | integer | 1 |
-| skylevel | double precision | nan |
-| last_updated | text | 2021-03-10T11:51:50.894211 |
-| time_recorded | timestamp with time zone | 2021-03-10 11:51:50.909456+00:00 |
 | dos_instance | text | desi_20210309 |
+| etc_skylevel | integer | 1 |
+| last_updated | text | 2021-03-10T11:51:50.894211 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-03-10 11:51:50.909887+00:00 |
 | row_status_user | text | desi_writer |
+| skylevel | double precision | nan |
+| time_recorded | timestamp with time zone | 2021-03-10 11:51:50.909456+00:00 |
 
 ### etc_requests
 
@@ -2512,16 +2557,16 @@ Shared variable `ETC_REQUESTS`.
 
 | Field | Type | Example |
 |---|---|---|
-| etc_requests | integer | 1 |
 | about_to_split | integer | 0 |
-| split_request | integer | 0 |
 | about_to_stop | integer | 0 |
-| stop_request | integer | 0 |
-| time_recorded | timestamp with time zone | 2021-03-09 22:55:33.412086+00:00 |
 | dos_instance | text | desi_20210309 |
+| etc_requests | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-03-09 22:55:33.413815+00:00 |
 | row_status_user | text | desi_writer |
+| split_request | integer | 0 |
+| stop_request | integer | 0 |
+| time_recorded | timestamp with time zone | 2021-03-09 22:55:33.412086+00:00 |
 
 ### etc_transparency
 
@@ -2529,14 +2574,14 @@ Shared variable `ETC_TRANSPARENCY`.
 
 | Field | Type | Example |
 |---|---|---|
-| etc_transparency | integer | 1 |
-| transparency | double precision | 0.0 |
-| last_updated | text | 2021-03-09T22:57:56.750673 |
-| time_recorded | timestamp with time zone | 2021-03-09 22:57:56.760682+00:00 |
 | dos_instance | text | desi_20210309 |
+| etc_transparency | integer | 1 |
+| last_updated | text | 2021-03-09T22:57:56.750673 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-03-09 22:57:56.762318+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2021-03-09 22:57:56.760682+00:00 |
+| transparency | double precision | 0.0 |
 
 ### performance_night
 
@@ -2544,19 +2589,19 @@ Shared variable `PERFORMANCE_NIGHT`.
 
 | Field | Type | Example |
 |---|---|---|
-| performance_night | integer | 1 |
-| obsday | text | 20210409 |
-| scheduled_shutdown | integer | 0 |
 | dawn | text | 05:08:56 |
+| dos_instance | text | desi_20210408 |
 | dusk | text | 19:45:15 |
 | interval | double precision | 5.0 |
-| seconds_between_nautical_twilight | integer | 33821 |
-| time_recorded | timestamp with time zone | 2021-04-09 22:53:58.375797+00:00 |
-| dos_instance | text | desi_20210408 |
+| obsday | text | 20210409 |
+| performance_night | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-04-09 22:53:58.376548+00:00 |
 | row_status_user | text | desi_writer |
+| scheduled_shutdown | integer | 0 |
+| seconds_between_nautical_twilight | integer | 33821 |
 | seconds_between_twilight | integer |  |
+| time_recorded | timestamp with time zone | 2021-04-09 22:53:58.375797+00:00 |
 
 ### performance_current
 
@@ -2564,65 +2609,65 @@ Shared variable `PERFORMANCE_CURRENT`.
 
 | Field | Type | Example |
 |---|---|---|
-| performance_current | integer | 1 |
-| system_ready | integer | 1 |
-| nfs | integer | 0 |
-| ocs_active | integer | 0 |
-| guider_loop | integer | 0 |
-| focus_loop | integer | 0 |
-| sky_loop | integer | 0 |
-| illuminator | integer | 0 |
-| specman_shutter | integer | 0 |
-| specman_digitize | integer | 0 |
-| tcs_tracking | integer | 0 |
-| tcs_incontrol | integer | 0 |
-| tcs_slewing | integer | 0 |
-| gfa_vccd | integer | 1 |
-| spectrograph_vccd | integer | 1 |
-| gfa_opsstate | integer | 1 |
-| petal_opsstate | integer | 0 |
-| opsstate | integer | 0 |
-| weather | integer | 0 |
-| instrument | integer | 0 |
-| mayall | integer | 1 |
-| other | integer | 0 |
-| obsday | text | 20210409 |
-| time_recorded | timestamp with time zone | 2021-04-09 22:53:58.412229+00:00 |
+| about_to_split | integer |  |
+| about_to_stop | integer |  |
+| acquisition | integer |  |
+| desi_interlock | integer |  |
+| dome_shutter | integer |  |
 | dos_instance | text | desi_20210408 |
+| fiducials | integer |  |
+| focus_loop | integer | 0 |
+| forproc | integer |  |
+| fvc | integer |  |
+| fvcproc | integer |  |
+| gfa_opsstate | integer | 1 |
+| gfa_vccd | integer | 1 |
+| gfaadjust | integer |  |
+| gfaproc | integer |  |
+| guider_loop | integer | 0 |
+| handle_fvc | integer |  |
+| idle | integer |  |
+| illuminator | integer | 0 |
+| instrument | integer | 0 |
+| last_updated | text |  |
+| mayall | integer | 1 |
+| mirror_cover | integer |  |
+| monitored | integer |  |
+| move_execute | integer |  |
+| move_prepare | integer |  |
+| nfs | integer | 0 |
+| nfsadjust | integer |  |
+| nfsproc | integer |  |
+| nfsrequest | integer |  |
+| obs | integer |  |
+| obsday | text | 20210409 |
+| ocs_active | integer | 0 |
+| ocs_monitor | integer |  |
+| opsstate | integer | 0 |
+| other | integer | 0 |
+| performance_current | integer | 1 |
+| petal_opsstate | integer | 0 |
+| posproc | integer |  |
+| ready | integer |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-04-09 22:53:58.413387+00:00 |
 | row_status_user | text | desi_writer |
-| desi_interlock | integer |  |
-| ocs_monitor | integer |  |
-| mirror_cover | integer |  |
-| dome_shutter | integer |  |
 | seq_active | integer |  |
-| fiducials | integer |  |
-| move_prepare | integer |  |
-| move_execute | integer |  |
-| nfsproc | integer |  |
-| gfaproc | integer |  |
-| posproc | integer |  |
-| fvcproc | integer |  |
-| forproc | integer |  |
-| spotmatch | integer |  |
-| last_updated | text |  |
-| acquisition | integer |  |
-| idle | integer |  |
+| sky_loop | integer | 0 |
+| specman_digitize | integer | 0 |
 | specman_prepare | integer |  |
-| ready | integer |  |
-| fvc | integer |  |
-| about_to_split | integer |  |
+| specman_shutter | integer | 0 |
+| spectrograph_vccd | integer | 1 |
 | split_request | integer |  |
-| about_to_stop | integer |  |
+| spotmatch | integer |  |
 | stop_request | integer |  |
-| monitored | integer |  |
-| handle_fvc | integer |  |
-| gfaadjust | integer |  |
-| nfsadjust | integer |  |
 | surveyobs | integer |  |
-| obs | integer |  |
-| nfsrequest | integer |  |
+| system_ready | integer | 1 |
+| tcs_incontrol | integer | 0 |
+| tcs_slewing | integer | 0 |
+| tcs_tracking | integer | 0 |
+| time_recorded | timestamp with time zone | 2021-04-09 22:53:58.412229+00:00 |
+| weather | integer | 0 |
 
 ### pc_ptl_status
 
@@ -2630,34 +2675,34 @@ Shared variable `PC_PTL-STATUS`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_ptl_status | integer | 1 |
-| pospwr_ps2_en | integer | 0 |
-| canbrd1_en | integer | 1 |
-| gfapwr_en | integer | 0 |
-| gfa_fan_out_en | integer |  |
-| gfa_fan_in_en | integer |  |
-| canbusfault | integer | 0 |
-| pcid | integer | 1 |
-| time | timestamp with time zone | 2020-11-03 22:06:37.400641+00:00 |
-| canbrd2_en | integer | 1 |
-| buff_en2 | integer | 1 |
-| pospwr_ps2_fbk | integer | 0 |
-| pospwr_ps1_fbk | integer | 0 |
-| ccdbias | integer | 0 |
-| status | jsonb | {} |
-| fxc_okay | integer | 0 |
-| ccdbiasenabled | integer | 0 |
-| telemetryfault | integer | 0 |
-| pospwr_ps1_en | integer | 0 |
 | buff_en1 | integer | 1 |
-| gfa_ovrtmp | integer | 0 |
-| tec_ctrl | integer | 0 |
-| time_recorded | timestamp with time zone | 2020-11-03 22:06:37.530836+00:00 |
+| buff_en2 | integer | 1 |
+| canbrd1_en | integer | 1 |
+| canbrd2_en | integer | 1 |
+| canbusfault | integer | 0 |
+| ccdbias | integer | 0 |
+| ccdbiasenabled | integer | 0 |
 | dos_instance | text | extern |
+| fxc_okay | integer | 0 |
+| gfa_fan_in_en | integer |  |
+| gfa_fan_out_en | integer |  |
+| gfa_ovrtmp | integer | 0 |
+| gfapwr_en | integer | 0 |
+| pc_ptl_status | integer | 1 |
+| pcid | integer | 1 |
+| pospwr_ps1_en | integer | 0 |
+| pospwr_ps1_fbk | integer | 0 |
+| pospwr_ps2_en | integer | 0 |
+| pospwr_ps2_fbk | integer | 0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-03 22:06:37.536176+00:00 |
 | row_status_user | text | desi_writer |
 | simulated | integer |  |
+| status | jsonb | {} |
+| tec_ctrl | integer | 0 |
+| telemetryfault | integer | 0 |
+| time | timestamp with time zone | 2020-11-03 22:06:37.400641+00:00 |
+| time_recorded | timestamp with time zone | 2020-11-03 22:06:37.530836+00:00 |
 
 ### pc_ptl_sensors
 
@@ -2665,49 +2710,49 @@ Shared variable `PC_PTL-SENSORS`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_ptl_sensors | integer | 269528 |
-| gxbtime | timestamp with time zone | 2020-12-04 22:08:55.539479+00:00 |
-| gfa_fan_in_pwm | double precision | 15.0 |
-| adc_gfa | double precision | 11.27 |
-| adctime | timestamp with time zone | 2020-12-04 22:08:49.980366+00:00 |
-| gfa_fan_out_tach | integer | 7150 |
-| adc_fan | double precision | 12.25 |
-| pcid | integer | 8 |
-| gfa_fan_out_pwm | double precision | 15.0 |
-| gxbcur | double precision | 1.610379 |
-| gfatime | timestamp with time zone | 2020-12-04 22:08:58.597500+00:00 |
-| temptime | timestamp with time zone | 2020-12-04 22:08:55.544474+00:00 |
-| gfa_fan_in_tach | integer | 10201 |
-| adc_buf | double precision | 3.28 |
 | adc_bb | double precision | 5.23 |
-| fpp_temp_sensor_3 | double precision | 10.937 |
-| pbox_temp_sensor | double precision | 20.5 |
+| adc_buf | double precision | 3.28 |
 | adc_can | double precision | 12.23 |
-| fpp_temp_sensor_2 | double precision | 11.312 |
-| fpp_temp_sensor_1 | double precision | 15.625 |
-| time | timestamp with time zone | 2020-12-04 22:08:58.914472+00:00 |
-| gxb_temp_sensor | double precision | 19.40625 |
-| time_recorded | timestamp with time zone | 2020-12-04 22:08:58.921855+00:00 |
+| adc_fan | double precision | 12.25 |
+| adc_gfa | double precision | 11.27 |
+| adc_ppwr1_c | double precision |  |
+| adc_ppwr1_v | double precision |  |
+| adc_ppwr2_c | double precision |  |
+| adc_ppwr2_v | double precision |  |
+| adc_split_v | double precision |  |
+| adctime | timestamp with time zone | 2020-12-04 22:08:49.980366+00:00 |
 | dos_instance | text | extern |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2020-12-04 22:08:58.948420+00:00 |
-| row_status_user | text | desi_writer |
-| simulated | integer | 0 |
+| fpp_temp_sensor_1 | double precision | 15.625 |
+| fpp_temp_sensor_10 | double precision |  |
+| fpp_temp_sensor_11 | double precision |  |
+| fpp_temp_sensor_12 | double precision |  |
+| fpp_temp_sensor_13 | double precision |  |
+| fpp_temp_sensor_2 | double precision | 11.312 |
+| fpp_temp_sensor_3 | double precision | 10.937 |
 | fpp_temp_sensor_4 | double precision |  |
 | fpp_temp_sensor_5 | double precision |  |
 | fpp_temp_sensor_6 | double precision |  |
 | fpp_temp_sensor_7 | double precision |  |
 | fpp_temp_sensor_8 | double precision |  |
 | fpp_temp_sensor_9 | double precision |  |
-| fpp_temp_sensor_10 | double precision |  |
-| fpp_temp_sensor_11 | double precision |  |
-| fpp_temp_sensor_12 | double precision |  |
-| fpp_temp_sensor_13 | double precision |  |
-| adc_split_v | double precision |  |
-| adc_ppwr2_v | double precision |  |
-| adc_ppwr1_c | double precision |  |
-| adc_ppwr2_c | double precision |  |
-| adc_ppwr1_v | double precision |  |
+| gfa_fan_in_pwm | double precision | 15.0 |
+| gfa_fan_in_tach | integer | 10201 |
+| gfa_fan_out_pwm | double precision | 15.0 |
+| gfa_fan_out_tach | integer | 7150 |
+| gfatime | timestamp with time zone | 2020-12-04 22:08:58.597500+00:00 |
+| gxb_temp_sensor | double precision | 19.40625 |
+| gxbcur | double precision | 1.610379 |
+| gxbtime | timestamp with time zone | 2020-12-04 22:08:55.539479+00:00 |
+| pbox_temp_sensor | double precision | 20.5 |
+| pc_ptl_sensors | integer | 269528 |
+| pcid | integer | 8 |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2020-12-04 22:08:58.948420+00:00 |
+| row_status_user | text | desi_writer |
+| simulated | integer | 0 |
+| temptime | timestamp with time zone | 2020-12-04 22:08:55.544474+00:00 |
+| time | timestamp with time zone | 2020-12-04 22:08:58.914472+00:00 |
+| time_recorded | timestamp with time zone | 2020-12-04 22:08:58.921855+00:00 |
 
 ### pc_ptl_powerup
 
@@ -2715,20 +2760,20 @@ Shared variable `PC_PTL-POWERUP`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_ptl_powerup | integer | 1 |
-| time | timestamp with time zone | 2020-11-06 03:37:55.832326+00:00 |
-| pcid | integer | 907 |
-| psfid_sysclks | jsonb |  |
-| thresholds | jsonb | {'CURR_GXB_WARN': 100, 'TACH_FAN_WARN': 2000, 'TE... |
-| status | jsonb | {} |
-| network_status | jsonb | FAILED |
-| time_recorded | timestamp with time zone | 2020-11-06 03:37:55.843384+00:00 |
 | dos_instance | text | extern |
+| network_status | jsonb | FAILED |
+| pc_ptl_powerup | integer | 1 |
+| pcid | integer | 907 |
+| posfid_sysclks | jsonb |  |
+| psfid_sysclks | jsonb |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-06 03:37:55.844104+00:00 |
 | row_status_user | text | desi_writer |
 | simulated | integer |  |
-| posfid_sysclks | jsonb |  |
+| status | jsonb | {} |
+| thresholds | jsonb | {'CURR_GXB_WARN': 100, 'TACH_FAN_WARN': 2000, 'TE... |
+| time | timestamp with time zone | 2020-11-06 03:37:55.832326+00:00 |
+| time_recorded | timestamp with time zone | 2020-11-06 03:37:55.843384+00:00 |
 
 ### pc_ptl_temps
 
@@ -2736,37 +2781,37 @@ Shared variable `PC_PTL-TEMPS`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_ptl_temps | integer | 1 |
-| time | timestamp with time zone | 2020-11-06 03:37:55.831579+00:00 |
-| pcid | integer | 907 |
-| posfid_imons | jsonb | {'9070': {'907000': None, '907001': None, '907002... |
-| posfid_temps | jsonb | {'999': 32.92} |
-| posfid_temps_max | double precision | 32.92 |
-| posfid_temps_mean | double precision | 32.920000000000016 |
-| posfid_temps_median | double precision | 32.92 |
-| posfid_state | text | unknown |
-| posfid_instatesince | double precision |  |
-| posfid_timelastalarm | double precision |  |
-| pos_temps_mean | double precision |  |
-| pos_temps_median | double precision |  |
-| pos_temps_max | double precision |  |
-| posfid_temps_n_above_th | integer | 0 |
+| dos_instance | text | extern |
 | fid_temps | jsonb |  |
 | fid_temps_max | double precision |  |
 | fid_temps_mean | double precision |  |
 | fid_temps_median | double precision |  |
 | fid_temps_n_above_th | integer |  |
 | onewire | jsonb |  |
-| threshold_fid_warn | double precision |  |
-| threshold_fid_alarm | double precision |  |
-| threshold_pos_warn | double precision |  |
-| threshold_pos_alarm | double precision |  |
-| time_recorded | timestamp with time zone | 2020-11-06 03:37:55.849310+00:00 |
-| dos_instance | text | extern |
+| pc_ptl_temps | integer | 1 |
+| pcid | integer | 907 |
+| pos_temps_max | double precision |  |
+| pos_temps_mean | double precision |  |
+| pos_temps_median | double precision |  |
+| posfid_imons | jsonb | {'9070': {'907000': None, '907001': None, '907002... |
+| posfid_instatesince | double precision |  |
+| posfid_state | text | unknown |
+| posfid_temps | jsonb | {'999': 32.92} |
+| posfid_temps_max | double precision | 32.92 |
+| posfid_temps_mean | double precision | 32.920000000000016 |
+| posfid_temps_median | double precision | 32.92 |
+| posfid_temps_n_above_th | integer | 0 |
+| posfid_timelastalarm | double precision |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-06 03:37:55.850637+00:00 |
 | row_status_user | text | desi_writer |
 | simulated | integer |  |
+| threshold_fid_alarm | double precision |  |
+| threshold_fid_warn | double precision |  |
+| threshold_pos_alarm | double precision |  |
+| threshold_pos_warn | double precision |  |
+| time | timestamp with time zone | 2020-11-06 03:37:55.831579+00:00 |
+| time_recorded | timestamp with time zone | 2020-11-06 03:37:55.849310+00:00 |
 
 ### hexapod_rotator
 
@@ -2774,22 +2819,22 @@ Shared variable `HEXAPOD_ROTATOR`.
 
 | Field | Type | Example |
 |---|---|---|
+| dec | double precision |  |
+| dos_instance | text | desisim_20201111 |
+| enabled | integer | 0 |
+| expid | integer |  |
 | hexapod_rotator | integer | 1 |
+| ra | double precision |  |
 | rot_enabled | integer | 0 |
-| rot_stopped | integer | 1 |
-| simulated | integer | 0 |
+| rot_interval | double precision | 60.0 |
 | rot_offset | double precision | 0.0 |
 | rot_rate | double precision | 0.0 |
-| rot_interval | double precision | 60.0 |
-| ra | double precision |  |
-| dec | double precision |  |
-| enabled | integer | 0 |
-| time_recorded | timestamp with time zone | 2020-11-12 15:01:18.980958+00:00 |
-| dos_instance | text | desisim_20201111 |
+| rot_stopped | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-12 15:01:18.982177+00:00 |
 | row_status_user | text | desi_writer |
-| expid | integer |  |
+| simulated | integer | 0 |
+| time_recorded | timestamp with time zone | 2020-11-12 15:01:18.980958+00:00 |
 
 ### environmentmonitor_fpe
 
@@ -2797,37 +2842,37 @@ Shared variable `ENVIRONMENTMONITOR_FPE`.
 
 | Field | Type | Example |
 |---|---|---|
-| environmentmonitor_fpe | integer | 1 |
-| fpe_timestamp | text | 2020-11-13 14:52:37 |
-| humidity | double precision | 0.97 |
-| temperature | double precision | 9.99 |
+| between_twilight | integer |  |
+| coude_dewpoint | double precision |  |
+| coude_humidity | double precision |  |
+| coude_temperature | double precision |  |
+| cryostat_glycol_return | double precision |  |
+| cryostat_glycol_supply | double precision |  |
 | dewpoint | double precision | -40.0 |
-| shack_dryair_temperature | double precision | 19.6 |
-| shack_dryair_water_ppm | double precision | 5806.0 |
-| shack_dryair_pressure_abs_bar | double precision | 0.8 |
-| shack_dryair_pressure_gauge_psi | double precision | 0.0 |
-| shack_dryair_dewpoint_dryer | double precision | -3.3 |
-| shack_dryair_dewpoint_atmos | double precision | -0.5 |
-| fpe_dryair_temperature | double precision | 31.0 |
-| fpe_dryair_water_ppm | double precision | 1.0 |
+| dos_instance | text | extern |
+| environmentmonitor_fpe | integer | 1 |
+| fp_glycol_return_a | double precision |  |
+| fp_glycol_return_b | double precision |  |
+| fp_glycol_supply | double precision |  |
+| fpe_dryair_dewpoint_atmos | double precision | -77.5 |
+| fpe_dryair_dewpoint_dryer | double precision | -66.1 |
 | fpe_dryair_pressure_abs_bar | double precision | 5.665 |
 | fpe_dryair_pressure_gauge_psi | double precision | 70.8 |
-| fpe_dryair_dewpoint_dryer | double precision | -66.1 |
-| fpe_dryair_dewpoint_atmos | double precision | -77.5 |
-| time_recorded | timestamp with time zone | 2020-11-13 14:52:38.594504+00:00 |
-| dos_instance | text | extern |
+| fpe_dryair_temperature | double precision | 31.0 |
+| fpe_dryair_water_ppm | double precision | 1.0 |
+| fpe_timestamp | text | 2020-11-13 14:52:37 |
+| humidity | double precision | 0.97 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-13 14:52:38.601261+00:00 |
 | row_status_user | text | desi_writer |
-| coude_humidity | double precision |  |
-| coude_temperature | double precision |  |
-| coude_dewpoint | double precision |  |
-| fp_glycol_supply | double precision |  |
-| fp_glycol_return_a | double precision |  |
-| fp_glycol_return_b | double precision |  |
-| cryostat_glycol_supply | double precision |  |
-| cryostat_glycol_return | double precision |  |
-| between_twilight | integer |  |
+| shack_dryair_dewpoint_atmos | double precision | -0.5 |
+| shack_dryair_dewpoint_dryer | double precision | -3.3 |
+| shack_dryair_pressure_abs_bar | double precision | 0.8 |
+| shack_dryair_pressure_gauge_psi | double precision | 0.0 |
+| shack_dryair_temperature | double precision | 19.6 |
+| shack_dryair_water_ppm | double precision | 5806.0 |
+| temperature | double precision | 9.99 |
+| time_recorded | timestamp with time zone | 2020-11-13 14:52:38.594504+00:00 |
 
 ### fxc_adcs
 
@@ -2835,19 +2880,19 @@ Shared variable `FXC_ADCS`.
 
 | Field | Type | Example |
 |---|---|---|
-| fxc_adcs | integer | 1 |
-| adc3 | integer | 0 |
-| adc2 | integer | 0 |
-| adc6 | integer | 2048 |
 | adc0 | integer | 0 |
-| adc5 | integer | 2033 |
 | adc1 | integer | 0 |
+| adc2 | integer | 0 |
+| adc3 | integer | 0 |
 | adc4 | integer | 976 |
-| time_recorded | timestamp with time zone | 2020-11-17 17:15:57.128832+00:00 |
+| adc5 | integer | 2033 |
+| adc6 | integer | 2048 |
 | dos_instance | text | extern |
+| fxc_adcs | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-17 17:15:57.141174+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-11-17 17:15:57.128832+00:00 |
 
 ### fxc_chiller
 
@@ -2855,30 +2900,30 @@ Shared variable `FXC_CHILLER`.
 
 | Field | Type | Example |
 |---|---|---|
-| fxc_chiller | integer | 39909 |
-| chiller_refrigerator_running_time | text | 2020-11-18T20:53:33.932392+00:00 |
-| chiller_setpoint | double precision | 10.0 |
-| chiller_status_time | text | 2020-11-18T20:53:33.923409+00:00 |
-| chiller_fluid_level | integer | 1 |
-| chiller_running_time | text | 2020-11-18T20:53:33.932206+00:00 |
-| chiller_running | integer | 1 |
-| chiller_fluid_level_time | text | 2020-11-18T20:53:33.932001+00:00 |
-| chiller_status | jsonb | {'DI1': 14, 'DI2': 7, 'DO1': 40, 'DO2': 174, 'PID... |
-| chiller_setpoint_time | text | 2020-11-18T20:53:33.931695+00:00 |
-| chiller_refrigerator_running | integer | 0 |
-| time_recorded | timestamp with time zone | 2020-11-18 20:53:34.842655+00:00 |
-| dos_instance | text | extern |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2020-11-18 20:53:35.012852+00:00 |
-| row_status_user | text | desi_writer |
-| chiller_pressure | double precision |  |
-| chiller_flowrate | double precision |  |
-| chiller_temperature | double precision |  |
-| chiller_heat_pct | double precision |  |
 | chiller_cool_pct | double precision |  |
 | chiller_error1bits | integer |  |
 | chiller_error2bits | integer |  |
+| chiller_flowrate | double precision |  |
+| chiller_fluid_level | integer | 1 |
+| chiller_fluid_level_time | text | 2020-11-18T20:53:33.932001+00:00 |
+| chiller_heat_pct | double precision |  |
+| chiller_pressure | double precision |  |
+| chiller_refrigerator_running | integer | 0 |
+| chiller_refrigerator_running_time | text | 2020-11-18T20:53:33.932392+00:00 |
+| chiller_running | integer | 1 |
+| chiller_running_time | text | 2020-11-18T20:53:33.932206+00:00 |
+| chiller_setpoint | double precision | 10.0 |
+| chiller_setpoint_time | text | 2020-11-18T20:53:33.931695+00:00 |
+| chiller_status | jsonb | {'DI1': 14, 'DI2': 7, 'DO1': 40, 'DO2': 174, 'PID... |
+| chiller_status_time | text | 2020-11-18T20:53:33.923409+00:00 |
+| chiller_temperature | double precision |  |
 | chiller_warnbits | integer |  |
+| dos_instance | text | extern |
+| fxc_chiller | integer | 39909 |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2020-11-18 20:53:35.012852+00:00 |
+| row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-11-18 20:53:34.842655+00:00 |
 
 ### fxc_temps
 
@@ -2886,22 +2931,22 @@ Shared variable `FXC_TEMPS`.
 
 | Field | Type | Example |
 |---|---|---|
-| fxc_temps | integer | 1 |
-| hxa_air | double precision | 16.937 |
-| fpr_2 | double precision | 16.937 |
-| fpr_1 | double precision | 16.875 |
+| adjacent_ptl | double precision | 16.875 |
+| air_fxc | double precision | 20.875 |
+| coolant_in | double precision | 17.0 |
+| coolant_out | double precision | 17.062 |
+| dos_instance | text | extern |
 | exterior_air | double precision | 18.125 |
 | fpe_air_high | double precision | 17.812 |
 | fpe_air_low | double precision | 16.937 |
-| coolant_in | double precision | 17.0 |
-| adjacent_ptl | double precision | 16.875 |
-| coolant_out | double precision | 17.062 |
-| air_fxc | double precision | 20.875 |
-| time_recorded | timestamp with time zone | 2020-11-17 17:15:56.907882+00:00 |
-| dos_instance | text | extern |
+| fpr_1 | double precision | 16.875 |
+| fpr_2 | double precision | 16.937 |
+| fxc_temps | integer | 1 |
+| hxa_air | double precision | 16.937 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-17 17:15:56.992291+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-11-17 17:15:56.907882+00:00 |
 
 ### fxc_pid
 
@@ -2909,23 +2954,23 @@ Shared variable `FXC_PID`.
 
 | Field | Type | Example |
 |---|---|---|
+| dos_instance | text | extern |
 | fxc_pid | integer | 435 |
-| pid_target | double precision | 0.0 |
 | pid_dgain | double precision | 0.0 |
 | pid_dmin | double precision | 0.0 |
-| pid_imin | double precision | 0.0 |
-| pid_sensor | double precision |  |
-| pid_igain | double precision | 0.0 |
 | pid_enabled | integer | 0 |
-| pid_smax | double precision | 0.0 |
-| pid_smin | double precision | 0.0 |
+| pid_igain | double precision | 0.0 |
+| pid_imin | double precision | 0.0 |
 | pid_offset | double precision | 0.0 |
 | pid_pgain | double precision | 0.0 |
-| time_recorded | timestamp with time zone | 2020-11-18 20:53:19.689003+00:00 |
-| dos_instance | text | extern |
+| pid_sensor | double precision |  |
+| pid_smax | double precision | 0.0 |
+| pid_smin | double precision | 0.0 |
+| pid_target | double precision | 0.0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-18 20:53:19.737986+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-11-18 20:53:19.689003+00:00 |
 
 ### performance_accumulated
 
@@ -2933,66 +2978,66 @@ Shared variable `PERFORMANCE_ACCUMULATED`.
 
 | Field | Type | Example |
 |---|---|---|
-| performance_accumulated | integer | 1 |
-| system_ready | double precision | 5.04 |
-| nfs | double precision | 0.0 |
-| ocs_active | double precision | 0.0 |
-| guider_loop | double precision | 0.0 |
-| focus_loop | double precision | 0.0 |
-| sky_loop | double precision | 0.0 |
-| illuminator | double precision | 0.0 |
-| specman_shutter | double precision | 0.0 |
-| specman_digitize | double precision | 0.0 |
-| tcs_tracking | double precision | 0.0 |
-| tcs_incontrol | double precision | 0.0 |
-| tcs_slewing | double precision | 0.0 |
-| gfa_vccd | double precision | 5.02 |
-| spectrograph_vccd | double precision | 5.02 |
-| gfa_opsstate | double precision | 5.03 |
-| petal_opsstate | double precision | 0.0 |
-| opsstate | double precision | 0.0 |
-| weather | double precision | 0.0 |
-| instrument | double precision | 0.0 |
-| mayall | double precision | 5.05 |
-| other | double precision | 0.0 |
-| obsday | text | 20210409 |
-| time_recorded | timestamp with time zone | 2021-04-09 22:53:58.418345+00:00 |
+| about_to_split | double precision |  |
+| about_to_stop | double precision |  |
+| acquisition | double precision |  |
+| desi_interlock | double precision |  |
+| dome_shutter | double precision |  |
 | dos_instance | text | desi_20210408 |
+| fiducials | double precision |  |
+| focus_loop | double precision | 0.0 |
+| forproc | double precision |  |
+| fvc | double precision |  |
+| fvcproc | double precision |  |
+| gfa_opsstate | double precision | 5.03 |
+| gfa_vccd | double precision | 5.02 |
+| gfaadjust | double precision |  |
+| gfaproc | double precision |  |
+| guider_loop | double precision | 0.0 |
+| handle_fvc | double precision |  |
+| idle | double precision |  |
+| illuminator | double precision | 0.0 |
+| instrument | double precision | 0.0 |
+| last_updated | text |  |
+| mayall | double precision | 5.05 |
+| mirror_cover | double precision |  |
+| monitored | double precision |  |
+| move_execute | double precision |  |
+| move_prepare | double precision |  |
+| nfs | double precision | 0.0 |
+| nfsadjust | double precision |  |
+| nfsproc | double precision |  |
+| nfsrequest | integer |  |
+| obs | double precision |  |
+| obsday | text | 20210409 |
+| ocs_active | double precision | 0.0 |
+| ocs_monitor | double precision |  |
+| opsstate | double precision | 0.0 |
+| other | double precision | 0.0 |
+| performance_accumulated | integer | 1 |
+| petal_opsstate | double precision | 0.0 |
+| posproc | double precision |  |
+| ready | double precision |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-04-09 22:53:58.419361+00:00 |
 | row_status_user | text | desi_writer |
-| desi_interlock | double precision |  |
-| ocs_monitor | double precision |  |
-| mirror_cover | double precision |  |
-| dome_shutter | double precision |  |
 | seq_active | double precision |  |
-| fiducials | double precision |  |
-| move_prepare | double precision |  |
-| move_execute | double precision |  |
-| nfsproc | double precision |  |
-| gfaproc | double precision |  |
-| posproc | double precision |  |
-| fvcproc | double precision |  |
-| forproc | double precision |  |
-| spotmatch | double precision |  |
-| last_updated | text |  |
-| acquisition | double precision |  |
-| idle | double precision |  |
+| sky_loop | double precision | 0.0 |
+| specman_digitize | double precision | 0.0 |
 | specman_prepare | double precision |  |
-| ready | double precision |  |
-| fvc | double precision |  |
-| about_to_split | double precision |  |
+| specman_shutter | double precision | 0.0 |
+| spectrograph_vccd | double precision | 5.02 |
 | split_request | double precision |  |
-| about_to_stop | double precision |  |
+| spotmatch | double precision |  |
 | stop_request | double precision |  |
-| monitored | double precision |  |
-| time_between_twilight | integer |  |
-| handle_fvc | double precision |  |
-| gfaadjust | double precision |  |
-| nfsadjust | double precision |  |
 | surveyobs | double precision |  |
-| obs | double precision |  |
-| nfsrequest | integer |  |
+| system_ready | double precision | 5.04 |
+| tcs_incontrol | double precision | 0.0 |
+| tcs_slewing | double precision | 0.0 |
+| tcs_tracking | double precision | 0.0 |
+| time_between_twilight | integer |  |
+| time_recorded | timestamp with time zone | 2021-04-09 22:53:58.418345+00:00 |
+| weather | double precision | 0.0 |
 
 ### fxc_misc
 
@@ -3000,38 +3045,38 @@ Shared variable `FXC_MISC`.
 
 | Field | Type | Example |
 |---|---|---|
-| fxc_misc | integer | 46341 |
-| bb_spare_en_time | text | 2020-11-18T23:18:10.000588+00:00 |
-| bb_chill_en_time | text | 2020-11-18T23:18:09.159764+00:00 |
-| bb_posfid_en_time | text | 2020-11-18T23:18:09.844336+00:00 |
-| bb_posfid_en | text | off |
-| fan_48v_ok_time | text | 2020-11-18T23:17:44.307665+00:00 |
-| last_sw_limits_error_time | text | 2020-11-18T21:12:09.778861+00:00 |
-| bb_chill_en | text | on |
-| sw_limits_time | text | 2020-11-18T20:53:19.617682+00:00 |
-| sw_limits_en_time | text | 2020-11-18T20:53:33.854984+00:00 |
-| auto_refer_on_period_time | text | 2020-11-18T20:53:19.615931+00:00 |
-| fan_48v_ok | text | off |
-| auto_refer_on_en_time | text | 2020-11-18T20:53:19.615730+00:00 |
-| bb_fp1_en_time | text | 2020-11-18T23:18:09.297388+00:00 |
-| fan_48v_en | text | off |
-| sw_limits | jsonb | {'ADCS:ADC4': [-1, 5000, 'Dry Air Flow'], 'ADCS:A... |
-| last_sw_limits_error | text |  |
 | auto_refer_on_en | integer | 0 |
+| auto_refer_on_en_time | text | 2020-11-18T20:53:19.615730+00:00 |
 | auto_refer_on_period | integer | 300 |
-| smoke_tripped_time | text | 2020-11-19T04:10:52.505866+00:00 |
+| auto_refer_on_period_time | text | 2020-11-18T20:53:19.615931+00:00 |
+| bb_chill_en | text | on |
+| bb_chill_en_time | text | 2020-11-18T23:18:09.159764+00:00 |
 | bb_fp1_en | text | off |
-| smoke_tripped | text | off |
+| bb_fp1_en_time | text | 2020-11-18T23:18:09.297388+00:00 |
 | bb_fp2_en | text | off |
-| sw_limits_en | integer | 0 |
 | bb_fp2_en_time | text | 2020-11-18T23:18:09.560441+00:00 |
+| bb_posfid_en | text | off |
+| bb_posfid_en_time | text | 2020-11-18T23:18:09.844336+00:00 |
 | bb_spare_en | text | off |
-| fan_48v_en_time | text | 2020-11-18T23:17:44.592386+00:00 |
-| time_recorded | timestamp with time zone | 2020-11-19 04:10:52.512124+00:00 |
+| bb_spare_en_time | text | 2020-11-18T23:18:10.000588+00:00 |
 | dos_instance | text | extern |
+| fan_48v_en | text | off |
+| fan_48v_en_time | text | 2020-11-18T23:17:44.592386+00:00 |
+| fan_48v_ok | text | off |
+| fan_48v_ok_time | text | 2020-11-18T23:17:44.307665+00:00 |
+| fxc_misc | integer | 46341 |
+| last_sw_limits_error | text |  |
+| last_sw_limits_error_time | text | 2020-11-18T21:12:09.778861+00:00 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-19 04:10:52.529265+00:00 |
 | row_status_user | text | desi_writer |
+| smoke_tripped | text | off |
+| smoke_tripped_time | text | 2020-11-19T04:10:52.505866+00:00 |
+| sw_limits | jsonb | {'ADCS:ADC4': [-1, 5000, 'Dry Air Flow'], 'ADCS:A... |
+| sw_limits_en | integer | 0 |
+| sw_limits_en_time | text | 2020-11-18T20:53:33.854984+00:00 |
+| sw_limits_time | text | 2020-11-18T20:53:19.617682+00:00 |
+| time_recorded | timestamp with time zone | 2020-11-19 04:10:52.512124+00:00 |
 
 ### fxc_vaisala
 
@@ -3039,27 +3084,27 @@ Shared variable `FXC_VAISALA`.
 
 | Field | Type | Example |
 |---|---|---|
-| fxc_vaisala | integer | 1 |
-| v_fpd_dewpoint | double precision | -29.02 |
-| v_se_ext_id | integer | 43 |
-| v_fpd_temperature | double precision | 18.35 |
-| v_fpd_time | text | 2020-11-18T16:10:02.289466+00:00 |
-| v_c3c4_humidity | double precision | 0.06 |
-| v_c3c4_id | integer | 42 |
-| v_c3c4_dewpoint | double precision | -59.03 |
-| v_se_ext_dewpoint | double precision | -3.37 |
-| v_fpd_id | integer | 44 |
-| v_c3c4_temperature | double precision | 17.82 |
-| v_se_ext_humidity | double precision | 22.94 |
-| v_fpd_humidity | double precision | 1.99 |
-| v_se_ext_temperature | double precision | 17.59 |
-| v_se_ext_time | text | 2020-11-18T16:10:02.289466+00:00 |
-| v_c3c4_time | text | 2020-11-18T16:10:02.289466+00:00 |
-| time_recorded | timestamp with time zone | 2020-11-18 16:10:03.184364+00:00 |
 | dos_instance | text | extern |
+| fxc_vaisala | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-18 16:10:03.206329+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-11-18 16:10:03.184364+00:00 |
+| v_c3c4_dewpoint | double precision | -59.03 |
+| v_c3c4_humidity | double precision | 0.06 |
+| v_c3c4_id | integer | 42 |
+| v_c3c4_temperature | double precision | 17.82 |
+| v_c3c4_time | text | 2020-11-18T16:10:02.289466+00:00 |
+| v_fpd_dewpoint | double precision | -29.02 |
+| v_fpd_humidity | double precision | 1.99 |
+| v_fpd_id | integer | 44 |
+| v_fpd_temperature | double precision | 18.35 |
+| v_fpd_time | text | 2020-11-18T16:10:02.289466+00:00 |
+| v_se_ext_dewpoint | double precision | -3.37 |
+| v_se_ext_humidity | double precision | 22.94 |
+| v_se_ext_id | integer | 43 |
+| v_se_ext_temperature | double precision | 17.59 |
+| v_se_ext_time | text | 2020-11-18T16:10:02.289466+00:00 |
 
 ### fxc_thr
 
@@ -3067,29 +3112,29 @@ Shared variable `FXC_THR`.
 
 | Field | Type | Example |
 |---|---|---|
-| fxc_thr | integer | 1 |
-| t_relay_set | integer | 0 |
-| t_humidity_lim_lo | integer | 0 |
-| t_alarm | integer | 20 |
-| t_id | text | 7e_00100000254a |
-| t_timerb | integer | 61122 |
-| t_timera | integer | 23179 |
-| t_humidity | double precision | 1.625 |
-| t_temp_lim_lo | integer | 0 |
-| t_dewpoint_lim_hi | integer | 15 |
-| t_temp_lim_hi | integer | 35 |
-| t_relay_func | integer | 0 |
-| t_temperature | double precision | 19.75 |
-| t_time | text | 2020-11-18T20:08:36.264642+00:00 |
-| t_dewpoint | double precision | -32.75 |
-| t_relay_state | integer | 0 |
-| t_dewpoint_lim_lo | integer | -128 |
-| t_humidity_lim_hi | integer | 85 |
-| time_recorded | timestamp with time zone | 2020-11-18 20:08:37.148211+00:00 |
 | dos_instance | text | extern |
+| fxc_thr | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-18 20:08:37.171890+00:00 |
 | row_status_user | text | desi_writer |
+| t_alarm | integer | 20 |
+| t_dewpoint | double precision | -32.75 |
+| t_dewpoint_lim_hi | integer | 15 |
+| t_dewpoint_lim_lo | integer | -128 |
+| t_humidity | double precision | 1.625 |
+| t_humidity_lim_hi | integer | 85 |
+| t_humidity_lim_lo | integer | 0 |
+| t_id | text | 7e_00100000254a |
+| t_relay_func | integer | 0 |
+| t_relay_set | integer | 0 |
+| t_relay_state | integer | 0 |
+| t_temp_lim_hi | integer | 35 |
+| t_temp_lim_lo | integer | 0 |
+| t_temperature | double precision | 19.75 |
+| t_time | text | 2020-11-18T20:08:36.264642+00:00 |
+| t_timera | integer | 23179 |
+| t_timerb | integer | 61122 |
+| time_recorded | timestamp with time zone | 2020-11-18 20:08:37.148211+00:00 |
 
 ### fxc_interlocks
 
@@ -3097,19 +3142,19 @@ Shared variable `FXC_INTERLOCKS`.
 
 | Field | Type | Example |
 |---|---|---|
+| dos_instance | text | extern |
 | fxc_interlocks | integer | 2084 |
 | interlock_fans | integer | 0 |
-| interlock_owthr | integer | 0 |
-| interlock_sw_limits | integer | 0 |
 | interlock_ok | integer | 1 |
+| interlock_owthr | integer | 0 |
 | interlock_smoke | integer | 0 |
-| time_recorded | timestamp with time zone | 2020-11-18 20:57:17.311586+00:00 |
-| dos_instance | text | extern |
+| interlock_sw_limits | integer | 0 |
+| last_interlock | text |  |
+| last_interlock_time | timestamp with time zone |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-18 20:57:17.320540+00:00 |
 | row_status_user | text | desi_writer |
-| last_interlock | text |  |
-| last_interlock_time | timestamp with time zone |  |
+| time_recorded | timestamp with time zone | 2020-11-18 20:57:17.311586+00:00 |
 
 ### fxc_fans
 
@@ -3117,56 +3162,56 @@ Shared variable `FXC_FANS`.
 
 | Field | Type | Example |
 |---|---|---|
-| fxc_fans | integer | 1 |
-| fan1_in_en_time | text | 2020-11-19T07:26:32.687248+00:00 |
-| fan2_ex_rpm | integer |  |
-| fan1_ex_rpm | integer |  |
-| fan2_ex_duty | integer |  |
-| fan2_in_en | integer |  |
-| fan_fault_flags | integer |  |
+| dos_instance | text | extern |
 | exfan_ex_duty | double precision |  |
-| exfan_ex_rpm_time | text |  |
-| exfan_in_en | integer |  |
-| fan_fm | jsonb | {'FAN_FM_MASK': 0, 'FAN_FM_FAULT': 0} |
+| exfan_ex_duty_time | text |  |
 | exfan_ex_en | integer |  |
+| exfan_ex_en_time | text |  |
+| exfan_ex_rpm | integer |  |
+| exfan_ex_rpm_time | text |  |
+| exfan_in_duty | integer |  |
+| exfan_in_duty_time | text |  |
+| exfan_in_en | integer |  |
+| exfan_in_en_time | text |  |
+| exfan_in_rpm | integer |  |
 | exfan_in_rpm_time | text |  |
 | fan1_ex_duty | double precision |  |
-| fan1_in_rpm | integer |  |
-| exfan_ex_en_time | text |  |
-| fan1_in_rpm_time | text |  |
-| fan2_in_rpm_time | text |  |
-| exfan_in_duty_time | text |  |
-| fan1_ex_rpm_time | text |  |
-| fan2_ex_duty_time | text |  |
-| sw_fan_fault_mask | integer |  |
-| fan2_in_duty | double precision |  |
 | fan1_ex_duty_time | text |  |
-| fan2_in_rpm | integer |  |
-| fan2_in_duty_time | text |  |
-| fan_fault_flags_time | text | 2020-11-19T07:26:32.275487+00:00 |
-| exfan_in_en_time | text |  |
-| exfan_ex_duty_time | text |  |
-| fan_fault_mask | integer |  |
-| fan2_ex_rpm_time | text |  |
-| fan2_ex_en_time | text |  |
 | fan1_ex_en | integer | 0 |
-| fan2_in_en_time | text |  |
-| exfan_in_duty | integer |  |
-| sw_fan_fault_mask_time | text | 2020-11-19T07:26:32.275873+00:00 |
-| fan1_in_duty_time | text |  |
-| exfan_ex_rpm | integer |  |
-| fan1_in_en | integer | 0 |
-| fan_fault_mask_time | text | 2020-11-19T07:26:32.275686+00:00 |
-| fan_fm_time | text | 2020-11-19T07:26:32.279325+00:00 |
 | fan1_ex_en_time | text | 2020-11-19T07:26:32.893585+00:00 |
-| fan2_ex_en | integer |  |
+| fan1_ex_rpm | integer |  |
+| fan1_ex_rpm_time | text |  |
 | fan1_in_duty | double precision |  |
-| exfan_in_rpm | integer |  |
-| time_recorded | timestamp with time zone | 2020-11-19 07:26:33.160953+00:00 |
-| dos_instance | text | extern |
+| fan1_in_duty_time | text |  |
+| fan1_in_en | integer | 0 |
+| fan1_in_en_time | text | 2020-11-19T07:26:32.687248+00:00 |
+| fan1_in_rpm | integer |  |
+| fan1_in_rpm_time | text |  |
+| fan2_ex_duty | integer |  |
+| fan2_ex_duty_time | text |  |
+| fan2_ex_en | integer |  |
+| fan2_ex_en_time | text |  |
+| fan2_ex_rpm | integer |  |
+| fan2_ex_rpm_time | text |  |
+| fan2_in_duty | double precision |  |
+| fan2_in_duty_time | text |  |
+| fan2_in_en | integer |  |
+| fan2_in_en_time | text |  |
+| fan2_in_rpm | integer |  |
+| fan2_in_rpm_time | text |  |
+| fan_fault_flags | integer |  |
+| fan_fault_flags_time | text | 2020-11-19T07:26:32.275487+00:00 |
+| fan_fault_mask | integer |  |
+| fan_fault_mask_time | text | 2020-11-19T07:26:32.275686+00:00 |
+| fan_fm | jsonb | {'FAN_FM_MASK': 0, 'FAN_FM_FAULT': 0} |
+| fan_fm_time | text | 2020-11-19T07:26:32.279325+00:00 |
+| fxc_fans | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-19 07:26:33.282226+00:00 |
 | row_status_user | text | desi_writer |
+| sw_fan_fault_mask | integer |  |
+| sw_fan_fault_mask_time | text | 2020-11-19T07:26:32.275873+00:00 |
+| time_recorded | timestamp with time zone | 2020-11-19 07:26:33.160953+00:00 |
 
 ### aos_latest
 
@@ -3177,42 +3222,42 @@ Shared variable `AOS_LATEST`.
 | aos_latest | integer | 1 |
 | aos_use | integer | 0 |
 | dodx | double precision |  |
-| dody | double precision |  |
-| dodz | double precision |  |
-| doxt | double precision |  |
-| doyt | double precision |  |
 | dodxerr | double precision |  |
+| dody | double precision |  |
 | dodyerr | double precision |  |
+| dodz | double precision |  |
 | dodzerr | double precision |  |
+| dos_instance | text | donut |
+| dox | double precision |  |
+| doxt | double precision |  |
 | doxterr | double precision |  |
+| doxtilt | double precision |  |
+| doy | double precision |  |
+| doyt | double precision |  |
 | doyterr | double precision |  |
-| expid | integer |  |
+| doytilt | double precision |  |
+| doz | double precision |  |
 | expframe | integer |  |
+| expid | integer |  |
 | exptime | double precision |  |
-| nusedplus | integer |  |
-| nusedminus | integer |  |
-| nused | integer |  |
+| ft | double precision |  |
+| hexposx | double precision |  |
+| hexposxtilt | double precision |  |
+| hexposy | double precision |  |
+| hexposytilt | double precision |  |
+| hexposz | double precision |  |
+| last_updated | timestamp with time zone |  |
 | mountaz | double precision |  |
 | mountel | double precision |  |
-| hexposx | double precision |  |
-| hexposy | double precision |  |
-| hexposz | double precision |  |
-| hexposxtilt | double precision |  |
-| hexposytilt | double precision |  |
-| trustemp | double precision |  |
+| nused | integer |  |
+| nusedminus | integer |  |
+| nusedplus | integer |  |
 | pmirtemp | double precision |  |
-| time_recorded | timestamp with time zone | 2020-11-25 23:15:52.154215+00:00 |
-| dos_instance | text | donut |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-25 23:15:52.155553+00:00 |
 | row_status_user | text | desi_writer |
-| dox | double precision |  |
-| doy | double precision |  |
-| doz | double precision |  |
-| doxtilt | double precision |  |
-| doytilt | double precision |  |
-| ft | double precision |  |
-| last_updated | timestamp with time zone |  |
+| time_recorded | timestamp with time zone | 2020-11-25 23:15:52.154215+00:00 |
+| trustemp | double precision |  |
 
 ### aos_average
 
@@ -3222,45 +3267,45 @@ Shared variable `AOS_AVERAGE`.
 |---|---|---|
 | aos_average | integer | 1 |
 | aos_use | integer | 0 |
-| nexp | integer |  |
 | dodx | double precision |  |
-| dody | double precision |  |
-| dodz | double precision |  |
-| doxt | double precision |  |
-| doyt | double precision |  |
 | dodxerr | double precision |  |
+| dody | double precision |  |
 | dodyerr | double precision |  |
+| dodz | double precision |  |
 | dodzerr | double precision |  |
+| dos_instance | text | donut |
+| dox | double precision |  |
+| doxt | double precision |  |
 | doxterr | double precision |  |
+| doxtilt | double precision |  |
+| doy | double precision |  |
+| doyt | double precision |  |
 | doyterr | double precision |  |
-| expid | double precision |  |
+| doytilt | double precision |  |
+| doz | double precision |  |
 | expframe | double precision |  |
+| expid | double precision |  |
 | exptime | double precision |  |
-| nusedplus | double precision |  |
-| nusedminus | double precision |  |
-| nused | double precision |  |
+| ft | double precision |  |
+| hexposx | double precision |  |
+| hexposxtilt | double precision |  |
+| hexposy | double precision |  |
+| hexposytilt | double precision |  |
+| hexposz | double precision |  |
+| last_updated | timestamp with time zone |  |
 | mountaz | double precision |  |
 | mountel | double precision |  |
-| hexposx | double precision |  |
-| hexposy | double precision |  |
-| hexposz | double precision |  |
-| hexposxtilt | double precision |  |
-| hexposytilt | double precision |  |
-| trustemp | double precision |  |
+| nexp | integer |  |
+| nused | double precision |  |
+| nusedminus | double precision |  |
+| nusedplus | double precision |  |
 | pmirtemp | double precision |  |
-| time_recorded | timestamp with time zone | 2020-11-25 23:15:52.162840+00:00 |
-| dos_instance | text | donut |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-25 23:15:52.164012+00:00 |
 | row_status_user | text | desi_writer |
-| doytilt | double precision |  |
-| doxtilt | double precision |  |
-| dox | double precision |  |
-| doy | double precision |  |
-| doz | double precision |  |
-| ft | double precision |  |
-| last_updated | timestamp with time zone |  |
 | tel_lut | ARRAY |  |
+| time_recorded | timestamp with time zone | 2020-11-25 23:15:52.162840+00:00 |
+| trustemp | double precision |  |
 
 ### adc_controllers
 
@@ -3269,24 +3314,24 @@ Shared variable `ADC_CONTROLLERS`.
 | Field | Type | Example |
 |---|---|---|
 | adc_controllers | integer | 1 |
-| status1 | text | STOPPED |
 | angle1 | integer | 360 |
-| rem_time1 | integer | 0 |
-| status2 | text | STOPPED |
 | angle2 | integer | 0 |
-| rem_time2 | integer | 0 |
+| dos_instance | text | klaus |
+| drv_enbld1 | integer |  |
+| drv_enbld2 | integer |  |
+| home1 | integer |  |
+| home2 | integer |  |
 | nrev1 | integer | 0 |
 | nrev2 | integer | 0 |
-| time_recorded | timestamp with time zone | 2019-01-31 17:02:26.805223+00:00 |
-| dos_instance | text | klaus |
+| rem_time1 | integer | 0 |
+| rem_time2 | integer | 0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-01-31 17:02:26.805970+00:00 |
 | row_status_user | text | desi_writer |
 | simulated | integer |  |
-| home1 | integer |  |
-| home2 | integer |  |
-| drv_enbld1 | integer |  |
-| drv_enbld2 | integer |  |
+| status1 | text | STOPPED |
+| status2 | text | STOPPED |
+| time_recorded | timestamp with time zone | 2019-01-31 17:02:26.805223+00:00 |
 
 ### hexapod_pos
 
@@ -3294,14 +3339,14 @@ Shared variable `HEXAPOD_POS`.
 
 | Field | Type | Example |
 |---|---|---|
+| dos_instance | text | klaus |
 | hexapod_pos | integer | 1 |
 | pos | ARRAY | [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] |
-| time_recorded | timestamp with time zone | 2019-01-31 17:01:28.929537+00:00 |
-| dos_instance | text | klaus |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-01-31 17:01:28.930172+00:00 |
 | row_status_user | text | desi_writer |
 | simulated | integer |  |
+| time_recorded | timestamp with time zone | 2019-01-31 17:01:28.929537+00:00 |
 
 ### donut_summary
 
@@ -3309,89 +3354,89 @@ Shared variable `DONUT_SUMMARY`.
 
 | Field | Type | Example |
 |---|---|---|
-| donut_summary | integer | 1 |
+| dodx | double precision | -410.26744550404203 |
+| dodxerr | double precision | 42.7128592999797 |
+| dody | double precision | -587.1660559839798 |
+| dodyerr | double precision | 28.72640051766016 |
 | dodz | double precision | 16.166856815772746 |
 | dodzerr | double precision | 4.564597140129798 |
-| dodx | double precision | -410.26744550404203 |
-| dody | double precision | -587.1660559839798 |
+| donut_summary | integer | 1 |
+| dos_instance | text | donut |
 | doxt | double precision | -0.09857253848006042 |
-| doyt | double precision | 5.495299202651837 |
-| dodxerr | double precision | 42.7128592999797 |
-| dodyerr | double precision | 28.72640051766016 |
 | doxterr | double precision | 4.874279212314202 |
+| doyt | double precision | 5.495299202651837 |
 | doyterr | double precision | 5.068238842381899 |
-| z4delta | double precision | 71.33314318422725 |
-| z4thetax | double precision | -2740.4075249532593 |
-| z4thetay | double precision | 4324.450958533495 |
-| z4deltaerr | double precision | 4.564597140129798 |
-| z4thetaxerr | double precision | 885.0570360802466 |
-| z4thetayerr | double precision | 972.8228034198694 |
-| z4meandeltabefore | double precision | 67.27890197134974 |
-| z4rmsdeltabefore | double precision | 33.56111530995427 |
-| z4meandeltaafter | double precision | 0.3454311019673688 |
-| z4rmsdeltaafter | double precision | 10.174280490779795 |
-| z5delta | double precision | 0.09178933781296872 |
-| z5thetax | double precision | -0.050147062438552624 |
-| z5thetay | double precision | -0.07058677606241 |
-| z5deltaerr | double precision | 0.029236050593758285 |
-| z5thetaxerr | double precision | 0.027363736513823362 |
-| z5thetayerr | double precision | 0.03018752895361123 |
-| z5meandeltabefore | double precision | 0.12829104033046998 |
-| z5rmsdeltabefore | double precision | 0.12311342314754811 |
-| z5meandeltaafter | double precision | 0.003905413940829184 |
-| z5rmsdeltaafter | double precision | 0.10880409287204551 |
-| z6delta | double precision | -0.0614045436903322 |
-| z6thetax | double precision | 0.04399959923859947 |
-| z6thetay | double precision | 0.07310343896052804 |
-| z6deltaerr | double precision | 0.01885739716474783 |
-| z6thetaxerr | double precision | 0.017464470789176404 |
-| z6thetayerr | double precision | 0.019438961839507857 |
-| z6meandeltabefore | double precision | -0.08643978592128101 |
-| z6rmsdeltabefore | double precision | 0.08316492912084564 |
-| z6meandeltaafter | double precision | -0.00012689909979586274 |
-| z6rmsdeltaafter | double precision | 0.054161602368606024 |
-| z7delta | double precision | 0.1148833490479847 |
-| z7thetax | double precision | 0.03823628822353545 |
-| z7thetay | double precision | -0.008688181727948564 |
-| z7deltaerr | double precision | 0.004188504987901892 |
-| z7thetaxerr | double precision | 0.0037244708741824848 |
-| z7thetayerr | double precision | 0.004290849495148341 |
-| z7meandeltabefore | double precision | 0.11216806380915378 |
-| z7rmsdeltabefore | double precision | 0.055726286963696484 |
-| z7meandeltaafter | double precision | 0.003573472602384665 |
-| z7rmsdeltaafter | double precision | 0.022572920464287966 |
-| z8delta | double precision | -0.08480305824919225 |
-| z8thetax | double precision | -0.01617186018490977 |
-| z8thetay | double precision | 0.042029508255224196 |
-| z8deltaerr | double precision | 0.006934173109096238 |
-| z8thetaxerr | double precision | 0.006216242429224318 |
-| z8thetayerr | double precision | 0.007112331715599979 |
-| z8meandeltabefore | double precision | -0.09140396207621718 |
-| z8rmsdeltabefore | double precision | 0.06372852789333712 |
-| z8meandeltaafter | double precision | 0.004375734693158583 |
-| z8rmsdeltaafter | double precision | 0.02472618948314297 |
-| nusedplus | integer | 10 |
-| nusedminus | integer | 14 |
-| nused | integer | 14 |
+| expframe | integer | 2 |
+| expid | integer | 52755 |
+| exptime | double precision | 30.0 |
 | hexpos | text | 1140.0,-480.0,58.5,-3.0,25.0,0.0 |
 | hexposx | double precision | 1140.0 |
-| hexposy | double precision | -480.0 |
-| hexposz | double precision | 58.5 |
 | hexposxtilt | double precision | -3.0 |
+| hexposy | double precision | -480.0 |
 | hexposytilt | double precision | 25.0 |
-| expid | integer | 52755 |
-| expframe | integer | 2 |
-| exptime | double precision | 30.0 |
+| hexposz | double precision | 58.5 |
 | ifile | text | donut-00052755-0002.fits |
 | mountaz | double precision | 271.227216 |
 | mountel | double precision | 87.562751 |
-| trustemp | double precision | 9.767 |
+| nused | integer | 14 |
+| nusedminus | integer | 14 |
+| nusedplus | integer | 10 |
 | pmirtemp | double precision | 7.662 |
-| time_recorded | timestamp with time zone | 2020-11-25 23:17:45.070385+00:00 |
-| dos_instance | text | donut |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-25 23:17:45.080722+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-11-25 23:17:45.070385+00:00 |
+| trustemp | double precision | 9.767 |
+| z4delta | double precision | 71.33314318422725 |
+| z4deltaerr | double precision | 4.564597140129798 |
+| z4meandeltaafter | double precision | 0.3454311019673688 |
+| z4meandeltabefore | double precision | 67.27890197134974 |
+| z4rmsdeltaafter | double precision | 10.174280490779795 |
+| z4rmsdeltabefore | double precision | 33.56111530995427 |
+| z4thetax | double precision | -2740.4075249532593 |
+| z4thetaxerr | double precision | 885.0570360802466 |
+| z4thetay | double precision | 4324.450958533495 |
+| z4thetayerr | double precision | 972.8228034198694 |
+| z5delta | double precision | 0.09178933781296872 |
+| z5deltaerr | double precision | 0.029236050593758285 |
+| z5meandeltaafter | double precision | 0.003905413940829184 |
+| z5meandeltabefore | double precision | 0.12829104033046998 |
+| z5rmsdeltaafter | double precision | 0.10880409287204551 |
+| z5rmsdeltabefore | double precision | 0.12311342314754811 |
+| z5thetax | double precision | -0.050147062438552624 |
+| z5thetaxerr | double precision | 0.027363736513823362 |
+| z5thetay | double precision | -0.07058677606241 |
+| z5thetayerr | double precision | 0.03018752895361123 |
+| z6delta | double precision | -0.0614045436903322 |
+| z6deltaerr | double precision | 0.01885739716474783 |
+| z6meandeltaafter | double precision | -0.00012689909979586274 |
+| z6meandeltabefore | double precision | -0.08643978592128101 |
+| z6rmsdeltaafter | double precision | 0.054161602368606024 |
+| z6rmsdeltabefore | double precision | 0.08316492912084564 |
+| z6thetax | double precision | 0.04399959923859947 |
+| z6thetaxerr | double precision | 0.017464470789176404 |
+| z6thetay | double precision | 0.07310343896052804 |
+| z6thetayerr | double precision | 0.019438961839507857 |
+| z7delta | double precision | 0.1148833490479847 |
+| z7deltaerr | double precision | 0.004188504987901892 |
+| z7meandeltaafter | double precision | 0.003573472602384665 |
+| z7meandeltabefore | double precision | 0.11216806380915378 |
+| z7rmsdeltaafter | double precision | 0.022572920464287966 |
+| z7rmsdeltabefore | double precision | 0.055726286963696484 |
+| z7thetax | double precision | 0.03823628822353545 |
+| z7thetaxerr | double precision | 0.0037244708741824848 |
+| z7thetay | double precision | -0.008688181727948564 |
+| z7thetayerr | double precision | 0.004290849495148341 |
+| z8delta | double precision | -0.08480305824919225 |
+| z8deltaerr | double precision | 0.006934173109096238 |
+| z8meandeltaafter | double precision | 0.004375734693158583 |
+| z8meandeltabefore | double precision | -0.09140396207621718 |
+| z8rmsdeltaafter | double precision | 0.02472618948314297 |
+| z8rmsdeltabefore | double precision | 0.06372852789333712 |
+| z8thetax | double precision | -0.01617186018490977 |
+| z8thetaxerr | double precision | 0.006216242429224318 |
+| z8thetay | double precision | 0.042029508255224196 |
+| z8thetayerr | double precision | 0.007112331715599979 |
 
 ### hexapod_trim
 
@@ -3399,14 +3444,14 @@ Shared variable `HEXAPOD_TRIM`.
 
 | Field | Type | Example |
 |---|---|---|
-| hexapod_trim | integer | 1 |
-| trim | ARRAY | [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] |
-| time_recorded | timestamp with time zone | 2019-01-31 17:01:26.829011+00:00 |
 | dos_instance | text | klaus |
+| hexapod_trim | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-01-31 17:01:26.829758+00:00 |
 | row_status_user | text | desi_writer |
 | simulated | integer |  |
+| time_recorded | timestamp with time zone | 2019-01-31 17:01:26.829011+00:00 |
+| trim | ARRAY | [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] |
 
 ### hexapod_hcustatus
 
@@ -3414,13 +3459,13 @@ Shared variable `HEXAPOD_HCUSTATUS`.
 
 | Field | Type | Example |
 |---|---|---|
-| hexapod_hcustatus | integer | 1 |
-| hcustatus | text | STA_CL |
-| time_recorded | timestamp with time zone | 2019-01-31 17:01:28.923922+00:00 |
 | dos_instance | text | klaus |
+| hcustatus | text | STA_CL |
+| hexapod_hcustatus | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-01-31 17:01:28.924404+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2019-01-31 17:01:28.923922+00:00 |
 
 ### ics_timing
 
@@ -3428,36 +3473,36 @@ Shared variable `ICS_TIMING`.
 
 | Field | Type | Example |
 |---|---|---|
-| ics_timing | integer | 1 |
-| guiderman_inverval | double precision |  |
-| guiderman_cycle | double precision |  |
-| time_recorded | timestamp with time zone | 2020-11-27 17:59:29.801914+00:00 |
 | dos_instance | text | desi_20201127 |
+| focusib_assign | double precision |  |
+| focusib_cycle | double precision |  |
+| focusib_sent | double precision |  |
+| focusman_cycle | double precision |  |
+| focusman_interval | double precision |  |
+| focusman_throttle | double precision |  |
+| guider_assign | double precision |  |
+| guider_cycle | double precision |  |
+| guider_sent | double precision |  |
+| guiderib_assign | double precision | 11.907 |
+| guiderib_cycle | double precision |  |
+| guiderib_sent | double precision |  |
+| guiderman_cycle | double precision |  |
+| guiderman_interval | double precision |  |
+| guiderman_inverval | double precision |  |
+| guiderman_throttle | double precision |  |
+| ics_timing | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-11-27 17:59:29.803043+00:00 |
 | row_status_user | text | desi_writer |
-| focusman_interval | double precision |  |
-| focusman_cycle | double precision |  |
+| skyib_assign | double precision |  |
+| skyib_cycle | double precision |  |
+| skyib_sent | double precision |  |
 | skyman_cycle | double precision |  |
 | skyman_interval | double precision |  |
-| guiderib_assign | double precision | 11.907 |
-| guiderib_sent | double precision |  |
-| skyib_sent | double precision |  |
-| skyib_assign | double precision |  |
-| focusib_assign | double precision |  |
-| focusib_sent | double precision |  |
-| specib_sent | double precision |  |
-| specib_assign | double precision |  |
-| guider_assign | double precision |  |
-| guider_sent | double precision |  |
-| guiderman_throttle | double precision |  |
 | skyman_throttle | double precision |  |
-| focusman_throttle | double precision |  |
-| guiderman_interval | double precision |  |
-| guider_cycle | double precision |  |
-| focusib_cycle | double precision |  |
-| skyib_cycle | double precision |  |
-| guiderib_cycle | double precision |  |
+| specib_assign | double precision |  |
+| specib_sent | double precision |  |
+| time_recorded | timestamp with time zone | 2020-11-27 17:59:29.801914+00:00 |
 
 ### gfa_boottime
 
@@ -3465,14 +3510,14 @@ Shared variable `GFA_BOOTTIME`.
 
 | Field | Type | Example |
 |---|---|---|
-| gfa_boottime | integer | 1 |
-| unit | integer | 8 |
 | boottime | double precision | 39.428 |
-| time_recorded | timestamp with time zone | 2020-12-01 16:15:57.085513+00:00 |
 | dos_instance | text | desi_20201201 |
+| gfa_boottime | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2020-12-01 16:15:57.085904+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2020-12-01 16:15:57.085513+00:00 |
+| unit | integer | 8 |
 
 ### cryostat_telemetry
 
@@ -3481,69 +3526,69 @@ Shared variable `CRYOSTAT_TELEMETRY`.
 | Field | Type | Example |
 |---|---|---|
 | cryostat_telemetry | integer | 1 |
-| va_def_gen | integer | 1 |
-| va_red_in_cooldn | integer | 0 |
-| va_red_in_ionic | integer | 0 |
-| va_red_ready | integer | 0 |
-| va_red_in_stop | integer | 0 |
-| io_red_inter_fee | integer | 0 |
-| va_red_def | integer | 1 |
-| va_red_def_ip | integer | 0 |
-| va_red_def_xpcde | integer | 0 |
-| xp_red_rvs_k | double precision | 999.989990234375 |
-| xp_red_rsp_k | double precision | 999.989990234375 |
-| xp_red_rid | double precision | 999.989990234375 |
-| xp_red_rvd | double precision | 999.989990234375 |
-| xp_red_rva | double precision | 999.989990234375 |
-| io_red_pt | double precision | 888.8800048828125 |
-| va_red_ip_mb | double precision | 1.0288449779627395e-11 |
-| io_red_tcp | double precision | 888.8800048828125 |
-| io_red_tct | double precision | 888.8800048828125 |
-| io_red_thh | double precision | 888.8800048828125 |
-| va_blu_in_cooldn | integer | 0 |
-| va_blu_in_ionic | integer | 0 |
-| va_blu_ready | integer | 0 |
-| va_blu_in_stop | integer | 0 |
+| dos_instance | text | klaus |
 | io_blu_inter_fee | integer | 0 |
-| va_blu_def | integer | 0 |
-| va_blu_def_ip | integer | 0 |
-| va_blu_def_xpcde | integer | 1 |
-| xp_blu_rvs_k | double precision | 999.989990234375 |
-| xp_blu_rsp_k | double precision | 999.989990234375 |
-| xp_blu_rid | double precision | 999.989990234375 |
-| xp_blu_rvd | double precision | 999.989990234375 |
-| xp_blu_rva | double precision | 999.989990234375 |
 | io_blu_pt | double precision | 888.8800048828125 |
-| va_blu_ip_mb | double precision | 1.0288449779627395e-11 |
 | io_blu_tcp | double precision | 888.8800048828125 |
 | io_blu_tct | double precision | 888.8800048828125 |
 | io_blu_thh | double precision | 888.8800048828125 |
-| va_nir_in_cooldn | integer | 0 |
-| va_nir_in_ionic | integer | 0 |
-| va_nir_ready | integer | 0 |
-| va_nir_in_stop | integer | 0 |
 | io_nir_inter_fee | integer | 0 |
-| va_nir_def | integer | 0 |
-| va_nir_def_ip | integer | 0 |
-| va_nir_def_xpcde | integer | 1 |
-| xp_nir_rvs_k | double precision | 999.989990234375 |
-| xp_nir_rsp_k | double precision | 999.989990234375 |
-| xp_nir_rid | double precision | 999.989990234375 |
-| xp_nir_rvd | double precision | 999.989990234375 |
-| xp_nir_rva | double precision | 999.989990234375 |
 | io_nir_pt | double precision | 888.8800048828125 |
-| va_nir_ip_mb | double precision | 1.0288449779627395e-11 |
 | io_nir_tcp | double precision | 888.8800048828125 |
 | io_nir_tct | double precision | 888.8800048828125 |
 | io_nir_thh | double precision | 888.8800048828125 |
-| time_recorded | timestamp with time zone | 2019-02-06 21:14:58.201011+00:00 |
-| unit | integer | 0 |
-| dos_instance | text | klaus |
+| io_red_inter_fee | integer | 0 |
+| io_red_pt | double precision | 888.8800048828125 |
+| io_red_tcp | double precision | 888.8800048828125 |
+| io_red_tct | double precision | 888.8800048828125 |
+| io_red_thh | double precision | 888.8800048828125 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-02-06 21:14:58.212879+00:00 |
 | row_status_user | text | desi_writer |
-| sp | integer |  |
 | sm | integer |  |
+| sp | integer |  |
+| time_recorded | timestamp with time zone | 2019-02-06 21:14:58.201011+00:00 |
+| unit | integer | 0 |
+| va_blu_def | integer | 0 |
+| va_blu_def_ip | integer | 0 |
+| va_blu_def_xpcde | integer | 1 |
+| va_blu_in_cooldn | integer | 0 |
+| va_blu_in_ionic | integer | 0 |
+| va_blu_in_stop | integer | 0 |
+| va_blu_ip_mb | double precision | 1.0288449779627395e-11 |
+| va_blu_ready | integer | 0 |
+| va_def_gen | integer | 1 |
+| va_nir_def | integer | 0 |
+| va_nir_def_ip | integer | 0 |
+| va_nir_def_xpcde | integer | 1 |
+| va_nir_in_cooldn | integer | 0 |
+| va_nir_in_ionic | integer | 0 |
+| va_nir_in_stop | integer | 0 |
+| va_nir_ip_mb | double precision | 1.0288449779627395e-11 |
+| va_nir_ready | integer | 0 |
+| va_red_def | integer | 1 |
+| va_red_def_ip | integer | 0 |
+| va_red_def_xpcde | integer | 0 |
+| va_red_in_cooldn | integer | 0 |
+| va_red_in_ionic | integer | 0 |
+| va_red_in_stop | integer | 0 |
+| va_red_ip_mb | double precision | 1.0288449779627395e-11 |
+| va_red_ready | integer | 0 |
+| xp_blu_rid | double precision | 999.989990234375 |
+| xp_blu_rsp_k | double precision | 999.989990234375 |
+| xp_blu_rva | double precision | 999.989990234375 |
+| xp_blu_rvd | double precision | 999.989990234375 |
+| xp_blu_rvs_k | double precision | 999.989990234375 |
+| xp_nir_rid | double precision | 999.989990234375 |
+| xp_nir_rsp_k | double precision | 999.989990234375 |
+| xp_nir_rva | double precision | 999.989990234375 |
+| xp_nir_rvd | double precision | 999.989990234375 |
+| xp_nir_rvs_k | double precision | 999.989990234375 |
+| xp_red_rid | double precision | 999.989990234375 |
+| xp_red_rsp_k | double precision | 999.989990234375 |
+| xp_red_rva | double precision | 999.989990234375 |
+| xp_red_rvd | double precision | 999.989990234375 |
+| xp_red_rvs_k | double precision | 999.989990234375 |
 
 ### spectrographs_ccds
 
@@ -3551,24 +3596,24 @@ Shared variable `SPECTROGRAPHS_CCDS`.
 
 | Field | Type | Example |
 |---|---|---|
-| spectrographs_ccds | integer | 1 |
-| clk_mask | integer |  |
-| dac_mask | integer |  |
-| power_on | integer |  |
-| ccd_idle | integer |  |
-| time_recorded | timestamp with time zone | 2019-02-13 16:52:42.334602+00:00 |
+| camera | text |  |
 | ccd | double precision |  |
+| ccd_idle | integer |  |
 | chassis | double precision |  |
+| clk_mask | integer |  |
 | cpu | double precision |  |
-| unit | integer | 0 |
+| dac_mask | integer |  |
 | dos_instance | text | klaus |
+| fee_interlock | integer |  |
+| power_on | integer |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-02-13 16:52:42.344657+00:00 |
 | row_status_user | text | desi_writer |
-| camera | text |  |
-| vccd | integer |  |
-| fee_interlock | integer |  |
 | simulated | integer |  |
+| spectrographs_ccds | integer | 1 |
+| time_recorded | timestamp with time zone | 2019-02-13 16:52:42.334602+00:00 |
+| unit | integer | 0 |
+| vccd | integer |  |
 
 ### spectrographs_sensors
 
@@ -3576,24 +3621,24 @@ Shared variable `SPECTROGRAPHS_SENSORS`.
 
 | Field | Type | Example |
 |---|---|---|
-| spectrographs_sensors | integer | 1 |
-| nir_camera_temp | double precision | 25.033 |
-| nir_camera_humidity | double precision | 0.509 |
-| red_camera_temp | double precision | 25.502 |
-| red_camera_humidity | double precision | 0.675 |
-| blue_camera_temp | double precision | 25.234 |
-| blue_camera_humidity | double precision | 0.753 |
+| bench_coll_temp | double precision | 24.922 |
 | bench_cryo_temp | double precision | 25.2 |
 | bench_nir_temp | double precision | 25.15 |
-| bench_coll_temp | double precision | 24.922 |
-| ieb_temp | double precision | 24.997 |
-| time_recorded | timestamp with time zone | 2019-02-13 16:52:43.886821+00:00 |
-| unit | integer | 0 |
+| blue_camera_humidity | double precision | 0.753 |
+| blue_camera_temp | double precision | 25.234 |
 | dos_instance | text | klaus |
+| ieb_temp | double precision | 24.997 |
+| nir_camera_humidity | double precision | 0.509 |
+| nir_camera_temp | double precision | 25.033 |
+| red_camera_humidity | double precision | 0.675 |
+| red_camera_temp | double precision | 25.502 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-02-13 16:52:45.069396+00:00 |
 | row_status_user | text | desi_writer |
 | simulated | integer |  |
+| spectrographs_sensors | integer | 1 |
+| time_recorded | timestamp with time zone | 2019-02-13 16:52:43.886821+00:00 |
+| unit | integer | 0 |
 
 ### spectrographs_mechanisms
 
@@ -3601,27 +3646,27 @@ Shared variable `SPECTROGRAPHS_MECHANISMS`.
 
 | Field | Type | Example |
 |---|---|---|
+| dos_instance | text | klaus |
+| exp_shutter | integer |  |
+| exp_shutter_power | integer |  |
+| exp_shutter_seal | integer |  |
+| hartmann_left | integer |  |
+| hartmann_left_power | integer |  |
+| hartmann_right | integer |  |
+| hartmann_right_power | integer |  |
+| illuminator | integer |  |
+| nir_shutter | integer |  |
+| nir_shutter_power | integer |  |
+| nir_shutter_seal | integer |  |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2019-02-13 16:52:45.061748+00:00 |
+| row_status_user | text | desi_writer |
+| simulated | integer |  |
 | spectrographs_mechanisms | integer | 1 |
 | status | text | READY |
 | time_recorded | timestamp with time zone | 2019-02-13 16:52:45.053851+00:00 |
 | unit | integer | 0 |
-| dos_instance | text | klaus |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2019-02-13 16:52:45.061748+00:00 |
-| row_status_user | text | desi_writer |
-| hartmann_right | integer |  |
-| hartmann_right_power | integer |  |
-| hartmann_left_power | integer |  |
-| hartmann_left | integer |  |
-| exp_shutter | integer |  |
-| exp_shutter_power | integer |  |
-| exp_shutter_seal | integer |  |
-| nir_shutter_seal | integer |  |
-| nir_shutter_power | integer |  |
-| nir_shutter | integer |  |
 | wago | integer |  |
-| illuminator | integer |  |
-| simulated | integer |  |
 
 ### calibration_testslit
 
@@ -3630,21 +3675,21 @@ Shared variable `CALIBRATION_TESTSLIT`.
 | Field | Type | Example |
 |---|---|---|
 | calibration_testslit | integer | 1 |
-| temp | double precision | 24.8 |
-| humidity | double precision | 38.0 |
-| time_recorded | timestamp with time zone | 2019-02-15 14:02:48.468087+00:00 |
-| dos_instance | text | klaus |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2019-02-15 14:02:48.468781+00:00 |
-| row_status_user | text | desi_writer |
-| hgar | integer |  |
 | cd | integer |  |
-| ne | integer |  |
-| kr | integer |  |
-| xe | integer |  |
 | continuum1 | integer |  |
 | continuum2 | integer |  |
 | continuum3 | integer |  |
+| dos_instance | text | klaus |
+| hgar | integer |  |
+| humidity | double precision | 38.0 |
+| kr | integer |  |
+| ne | integer |  |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2019-02-15 14:02:48.468781+00:00 |
+| row_status_user | text | desi_writer |
+| temp | double precision | 24.8 |
+| time_recorded | timestamp with time zone | 2019-02-15 14:02:48.468087+00:00 |
+| xe | integer |  |
 
 ### shack_shack
 
@@ -3652,13 +3697,16 @@ Shared variable `SHACK_SHACK`.
 
 | Field | Type | Example |
 |---|---|---|
-| shack_shack | integer | 1 |
-| updated | text | 2019-02-19T21:11:14.695007 |
-| time_recorded | timestamp with time zone | 2019-02-19 21:11:14.781120+00:00 |
 | dos_instance | text | extern |
+| illuminator | integer |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-02-19 21:11:14.782591+00:00 |
 | row_status_user | text | desi_writer |
+| sai_mr | integer |  |
+| sai_power | integer |  |
+| sai_ssr | integer |  |
+| shack_shack | integer | 1 |
+| sm10_power | integer |  |
 | sm1_power | integer |  |
 | sm2_power | integer |  |
 | sm3_power | integer |  |
@@ -3668,13 +3716,10 @@ Shared variable `SHACK_SHACK`.
 | sm7_power | integer |  |
 | sm8_power | integer |  |
 | sm9_power | integer |  |
-| sm10_power | integer |  |
-| wago | integer |  |
-| sai_ssr | integer |  |
-| sai_mr | integer |  |
-| sai_power | integer |  |
 | status | integer |  |
-| illuminator | integer |  |
+| time_recorded | timestamp with time zone | 2019-02-19 21:11:14.781120+00:00 |
+| updated | text | 2019-02-19T21:11:14.695007 |
+| wago | integer |  |
 | wec | integer |  |
 
 ### shack_wec
@@ -3683,26 +3728,26 @@ Shared variable `SHACK_WEC`.
 
 | Field | Type | Example |
 |---|---|---|
-| shack_wec | integer | 1 |
-| ahu_unit | double precision | 0.0 |
 | a_simulation | text | TRUE |
-| room_pressure | double precision | 0.0 |
-| space_temp1 | double precision | 0.0 |
-| reheat_temp | double precision | 0.0 |
-| updated | text | 2019-02-19T21:11:14.932671 |
-| space_humidity | double precision | 0.0 |
-| time_recorded | timestamp with time zone | 2019-02-19 21:11:14.946315+00:00 |
+| ahu_unit | double precision | 0.0 |
+| chilled_water_output | double precision |  |
+| cooling_coil_temp | double precision |  |
 | dos_instance | text | extern |
+| heater_output | double precision |  |
+| reheat_temp | double precision | 0.0 |
+| room_pressure | double precision | 0.0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-02-19 21:11:14.948080+00:00 |
 | row_status_user | text | desi_writer |
-| heater_output | double precision |  |
+| shack_wec | integer | 1 |
+| space_humidity | double precision | 0.0 |
+| space_temp1 | double precision | 0.0 |
 | space_temp2 | double precision |  |
+| space_temp3 | double precision |  |
 | space_temp4 | double precision |  |
 | space_temp_avg | double precision |  |
-| space_temp3 | double precision |  |
-| cooling_coil_temp | double precision |  |
-| chilled_water_output | double precision |  |
+| time_recorded | timestamp with time zone | 2019-02-19 21:11:14.946315+00:00 |
+| updated | text | 2019-02-19T21:11:14.932671 |
 
 ### shack_wago
 
@@ -3710,16 +3755,16 @@ Shared variable `SHACK_WAGO`.
 
 | Field | Type | Example |
 |---|---|---|
-| shack_wago | integer | 1 |
-| purge_pressure | double precision | 9.3 |
-| updated | text | 2019-02-19T21:11:14.695022 |
-| seal_pressure | double precision | 19.77 |
 | box_temp | double precision | 16.6 |
-| time_recorded | timestamp with time zone | 2019-02-19 21:11:14.980251+00:00 |
 | dos_instance | text | extern |
+| purge_pressure | double precision | 9.3 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-02-19 21:11:14.981201+00:00 |
 | row_status_user | text | desi_writer |
+| seal_pressure | double precision | 19.77 |
+| shack_wago | integer | 1 |
+| time_recorded | timestamp with time zone | 2019-02-19 21:11:14.980251+00:00 |
+| updated | text | 2019-02-19T21:11:14.695022 |
 
 ### performance_monitor
 
@@ -3727,15 +3772,15 @@ Shared variable `PERFORMANCE_MONITOR`.
 
 | Field | Type | Example |
 |---|---|---|
-| performance_monitor | integer | 1 |
-| status | integer | 1 |
-| obsday | text | 20210410 |
-| time_recorded | timestamp with time zone | 2021-04-11 14:43:19.196701+00:00 |
 | dos_instance | text | desi_20210410 |
+| last_updated | text |  |
+| obsday | text | 20210410 |
+| performance_monitor | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-04-11 14:43:19.197127+00:00 |
 | row_status_user | text | desi_writer |
-| last_updated | text |  |
+| status | integer | 1 |
+| time_recorded | timestamp with time zone | 2021-04-11 14:43:19.196701+00:00 |
 
 ### cifids_temperatures
 
@@ -3744,16 +3789,16 @@ Shared variable `CIFIDS_TEMPERATURES`.
 | Field | Type | Example |
 |---|---|---|
 | cifids_temperatures | integer | 1 |
+| dos_instance | text | ci_20190331 |
+| row_status | text | M |
+| row_status_time | timestamp with time zone | 2019-03-31 22:45:45.259125+00:00 |
+| row_status_user | text | desi_writer |
 | t1 | double precision | 16.062 |
 | t2 | double precision | 16.125 |
 | t3 | double precision | 17.625 |
 | t4 | double precision | 16.625 |
 | t5 | double precision | 21.75 |
 | time_recorded | timestamp with time zone | 2019-03-31 22:45:45.258478+00:00 |
-| dos_instance | text | ci_20190331 |
-| row_status | text | M |
-| row_status_time | timestamp with time zone | 2019-03-31 22:45:45.259125+00:00 |
-| row_status_user | text | desi_writer |
 
 ### ics_memory
 
@@ -3761,16 +3806,16 @@ Shared variable `ICS_MEMORY`.
 
 | Field | Type | Example |
 |---|---|---|
-| ics_memory | integer | 1 |
-| role | text | GUIDE0 |
-| memory | double precision | 111.56640625 |
 | cpu | double precision | 0.0 |
-| time_recorded | timestamp with time zone | 2021-05-18 18:42:20.318066+00:00 |
 | dos_instance | text | desi_20210517 |
+| free | double precision |  |
+| ics_memory | integer | 1 |
+| memory | double precision | 111.56640625 |
+| role | text | GUIDE0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-05-18 18:42:20.318467+00:00 |
 | row_status_user | text | desi_writer |
-| free | double precision |  |
+| time_recorded | timestamp with time zone | 2021-05-18 18:42:20.318066+00:00 |
 
 ### contmonfp_telemetry
 
@@ -3779,14 +3824,14 @@ Shared variable `CONTMONFP_TELEMETRY`.
 | Field | Type | Example |
 |---|---|---|
 | contmonfp_telemetry | integer | 1 |
-| reflectivity_voltage | double precision | -0.42726173996925354 |
-| scatter_voltage | double precision | -0.504182755947113 |
-| temp_control_ok | integer | 0 |
-| time_recorded | timestamp with time zone | 2021-06-10 16:14:32.310500+00:00 |
 | dos_instance | text | ann |
+| reflectivity_voltage | double precision | -0.42726173996925354 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-06-10 16:14:32.311139+00:00 |
 | row_status_user | text | desi_writer |
+| scatter_voltage | double precision | -0.504182755947113 |
+| temp_control_ok | integer | 0 |
+| time_recorded | timestamp with time zone | 2021-06-10 16:14:32.310500+00:00 |
 
 ### fiber_analysis
 
@@ -3794,49 +3839,49 @@ Shared variable `FIBER_ANALYSIS`.
 
 | Field | Type | Example |
 |---|---|---|
-| date | date | 2021-06-03 |
-| pos_id | text | M02691 |
-| petal_id | integer | 4 |
-| location | integer | 486 |
-| hardstop | boolean | False |
-| bad_scale | boolean | False |
-| lodged | boolean | False |
-| disabled_moving | boolean | False |
 | autodisabled | boolean | False |
+| bad_scale | boolean | False |
 | concern | boolean | False |
+| date | date | 2021-06-03 |
+| disabled_moving | boolean | False |
+| dos_instance | text | extern |
 | frozen | boolean | False |
-| others | text |  |
+| hard_p | double precision | 0.0 |
+| hard_t | double precision | 0.0 |
+| hardstop | boolean | False |
+| location | integer | 486 |
+| lodged | boolean | False |
 | nautodis | integer | 0 |
-| nlodged | integer | 0 |
-| ndebounced | integer | 0 |
-| ndebounced_fail | integer | 0 |
-| ninterfere | integer | 0 |
-| nfrozen | integer | 0 |
-| nfrozen_unflag | integer | 0 |
-| nlines | integer | 93 |
-| nenabled | integer | 93 |
-| nmoves | integer | 28 |
-| nmoved | integer | 37 |
+| nbad_p | integer | 0 |
+| nbad_t | integer | 0 |
 | nbigmoves | integer | 23 |
 | nbigmoves_ok | integer | 17 |
 | nbigmoves_up | integer | 6 |
-| nbad_t | integer | 0 |
-| nbad_p | integer | 0 |
-| hard_t | double precision | 0.0 |
-| scale_t_mean | double precision | 0.9873311519622803 |
-| scale_t_err | double precision | 0.001998696243390441 |
-| scale_t_rms | double precision | 0.0052880533039569855 |
-| scale_t_max | double precision | 0.020191574469208717 |
-| hard_p | double precision | 0.0 |
-| scale_p_mean | double precision | 1.0100330114364624 |
-| scale_p_err | double precision | 0.006959248799830675 |
-| scale_p_rms | double precision | 0.01841244101524353 |
-| scale_p_max | double precision | 0.03366166725754738 |
-| time_recorded | timestamp with time zone |  |
-| dos_instance | text | extern |
+| ndebounced | integer | 0 |
+| ndebounced_fail | integer | 0 |
+| nenabled | integer | 93 |
+| nfrozen | integer | 0 |
+| nfrozen_unflag | integer | 0 |
+| ninterfere | integer | 0 |
+| nlines | integer | 93 |
+| nlodged | integer | 0 |
+| nmoved | integer | 37 |
+| nmoves | integer | 28 |
+| others | text |  |
+| petal_id | integer | 4 |
+| pos_id | text | M02691 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-07-08 01:02:52.670934+00:00 |
 | row_status_user | text | desi_writer |
+| scale_p_err | double precision | 0.006959248799830675 |
+| scale_p_max | double precision | 0.03366166725754738 |
+| scale_p_mean | double precision | 1.0100330114364624 |
+| scale_p_rms | double precision | 0.01841244101524353 |
+| scale_t_err | double precision | 0.001998696243390441 |
+| scale_t_max | double precision | 0.020191574469208717 |
+| scale_t_mean | double precision | 0.9873311519622803 |
+| scale_t_rms | double precision | 0.0052880533039569855 |
+| time_recorded | timestamp with time zone |  |
 
 ### guider_summary
 
@@ -3844,23 +3889,23 @@ Shared variable `GUIDER_SUMMARY`.
 
 | Field | Type | Example |
 |---|---|---|
-| guider_summary | integer | 1 |
+| dos_instance | text | ci_20190417 |
 | duration | double precision | 82.79 |
 | expid | integer | 7424 |
-| seeing | double precision |  |
 | frames | integer | 4 |
-| meanx | double precision | 0.0 |
-| meany | double precision | 0.0 |
-| meanx2 | double precision | 0.0 |
-| meany2 | double precision | 0.0 |
-| meanxy | double precision | 0.0 |
+| guider_summary | integer | 1 |
 | maxx | double precision | 0.0 |
 | maxy | double precision | 0.0 |
-| time_recorded | timestamp with time zone | 2019-04-18 02:43:47.150035+00:00 |
-| dos_instance | text | ci_20190417 |
+| meanx | double precision | 0.0 |
+| meanx2 | double precision | 0.0 |
+| meanxy | double precision | 0.0 |
+| meany | double precision | 0.0 |
+| meany2 | double precision | 0.0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2019-04-18 02:43:47.150767+00:00 |
 | row_status_user | text | desi_writer |
+| seeing | double precision |  |
+| time_recorded | timestamp with time zone | 2019-04-18 02:43:47.150035+00:00 |
 
 ### environmentmonitor_elnino
 
@@ -3868,20 +3913,20 @@ Shared variable `ENVIRONMENTMONITOR_ELNINO`.
 
 | Field | Type | Example |
 |---|---|---|
-| environmentmonitor_elnino | integer | 1 |
+| between_twilight | integer |  |
+| dos_instance | text | extern |
 | elnino_timestamp | text | 2021-11-24 11:02:05 |
-| zp_adu_per_s_desi | double precision | 13.640887816050183 |
-| sky_adu_per_s_desi | double precision | 214.03095703125 |
-| zp_adu_per_s | double precision | 14.19357525534133 |
-| sky_adu_per_s | double precision | 213.381103515625 |
+| environmentmonitor_elnino | integer | 1 |
 | flag | integer | 0 |
 | mjd_obs | double precision | 59542.460211 |
-| time_recorded | timestamp with time zone | 2021-11-24 19:42:33.829888+00:00 |
-| dos_instance | text | extern |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-11-24 19:42:33.838167+00:00 |
 | row_status_user | text | desi_writer |
-| between_twilight | integer |  |
+| sky_adu_per_s | double precision | 213.381103515625 |
+| sky_adu_per_s_desi | double precision | 214.03095703125 |
+| time_recorded | timestamp with time zone | 2021-11-24 19:42:33.829888+00:00 |
+| zp_adu_per_s | double precision | 14.19357525534133 |
+| zp_adu_per_s_desi | double precision | 13.640887816050183 |
 
 ### petalman_times
 
@@ -3889,20 +3934,20 @@ Shared variable `PETALMAN_TIMES`.
 
 | Field | Type | Example |
 |---|---|---|
-| petalman_times | integer | 1 |
-| handlefvcfeedback_after_blind | double precision |  |
-| prepareformove_blind | double precision |  |
+| dos_instance | text | desi_20211222 |
 | executemove_blind | double precision |  |
-| handlefvcfeedback_after_corr | double precision |  |
-| prepareformove_corr | double precision |  |
 | executemove_corr | double precision | 28.2491 |
 | expid | integer | 115150 |
+| handlefvcfeedback_after_blind | double precision |  |
+| handlefvcfeedback_after_corr | double precision |  |
 | iteration | integer | 1 |
-| time_recorded | timestamp with time zone | 2021-12-23 01:24:41.720067+00:00 |
-| dos_instance | text | desi_20211222 |
+| petalman_times | integer | 1 |
+| prepareformove_blind | double precision |  |
+| prepareformove_corr | double precision |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2021-12-23 01:24:41.723283+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2021-12-23 01:24:41.720067+00:00 |
 
 ### ocs_slew
 
@@ -3910,15 +3955,15 @@ Shared variable `OCS_SLEW`.
 
 | Field | Type | Example |
 |---|---|---|
-| ocs_slew | integer | 1 |
-| slewtime | double precision | 0.536 |
-| slewangl | double precision |  |
-| moonsep | double precision |  |
-| time_recorded | timestamp with time zone | 2022-01-04 01:15:08.079777+00:00 |
 | dos_instance | text | desi_20220103 |
+| moonsep | double precision |  |
+| ocs_slew | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2022-01-04 01:15:08.080359+00:00 |
 | row_status_user | text | desi_writer |
+| slewangl | double precision |  |
+| slewtime | double precision | 0.536 |
+| time_recorded | timestamp with time zone | 2022-01-04 01:15:08.079777+00:00 |
 
 ### ocs_intexptime
 
@@ -3926,13 +3971,13 @@ Shared variable `OCS_INTEXPTIME`.
 
 | Field | Type | Example |
 |---|---|---|
-| ocs_intexptime | integer | 1 |
-| intexptime | double precision | 157.666 |
-| time_recorded | timestamp with time zone | 2022-01-04 01:38:45.658723+00:00 |
 | dos_instance | text | desi_20220103 |
+| intexptime | double precision | 157.666 |
+| ocs_intexptime | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2022-01-04 01:38:45.659432+00:00 |
 | row_status_user | text | desi_writer |
+| time_recorded | timestamp with time zone | 2022-01-04 01:38:45.658723+00:00 |
 
 ### gfa_ptl_sensors
 
@@ -3940,38 +3985,38 @@ Shared variable `GFA_PTL-SENSORS`.
 
 | Field | Type | Example |
 |---|---|---|
-| gfa_ptl_sensors | integer | 1 |
-| gfa_fan_in_pwm | double precision | 0.0 |
-| gfa_fan_out_pwm | double precision | 0.0 |
-| gfa_fan_in_tach | integer | 0 |
-| gfa_fan_out_tach | integer | 0 |
-| gfatime | text | 2022-06-14T15:13:17.505775 |
-| pbox_temp_sensor | double precision |  |
+| dos_instance | text | extern |
 | fpp_temp_sensor_1 | double precision |  |
+| fpp_temp_sensor_10 | double precision |  |
+| fpp_temp_sensor_11 | double precision |  |
+| fpp_temp_sensor_12 | double precision |  |
+| fpp_temp_sensor_13 | double precision |  |
 | fpp_temp_sensor_2 | double precision |  |
 | fpp_temp_sensor_3 | double precision |  |
-| fpp_temp_sensor_13 | double precision |  |
-| fpp_temp_sensor_7 | double precision |  |
-| fpp_temp_sensor_11 | double precision |  |
-| fpp_temp_sensor_6 | double precision |  |
-| fpp_temp_sensor_12 | double precision |  |
-| fpp_temp_sensor_8 | double precision |  |
 | fpp_temp_sensor_4 | double precision |  |
-| fpp_temp_sensor_10 | double precision |  |
-| fpp_temp_sensor_9 | double precision |  |
 | fpp_temp_sensor_5 | double precision |  |
+| fpp_temp_sensor_6 | double precision |  |
+| fpp_temp_sensor_7 | double precision |  |
+| fpp_temp_sensor_8 | double precision |  |
+| fpp_temp_sensor_9 | double precision |  |
+| gfa_fan_in_pwm | double precision | 0.0 |
+| gfa_fan_in_tach | integer | 0 |
+| gfa_fan_out_pwm | double precision | 0.0 |
+| gfa_fan_out_tach | integer | 0 |
+| gfa_ptl_sensors | integer | 1 |
+| gfatime | text | 2022-06-14T15:13:17.505775 |
 | gxb_temp_sensor | double precision |  |
-| temptime | text | 2022-06-14T15:13:14.456632 |
 | gxbcur | double precision |  |
 | gxbtime | text |  |
+| pbox_temp_sensor | double precision |  |
 | pcid | integer | 0 |
-| time | text | 2022-06-14T15:13:17.506749 |
-| simulated | integer | 0 |
-| time_recorded | timestamp with time zone | 2022-06-14 15:13:17.534774+00:00 |
-| dos_instance | text | extern |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2022-06-14 15:13:17.549899+00:00 |
 | row_status_user | text | desi_writer |
+| simulated | integer | 0 |
+| temptime | text | 2022-06-14T15:13:14.456632 |
+| time | text | 2022-06-14T15:13:17.506749 |
+| time_recorded | timestamp with time zone | 2022-06-14 15:13:17.534774+00:00 |
 
 ### gfa_ptl_status
 
@@ -3979,25 +4024,25 @@ Shared variable `GFA_PTL-STATUS`.
 
 | Field | Type | Example |
 |---|---|---|
-| gfa_ptl_status | integer | 1 |
-| gfa_ovrtmp | integer | 0 |
+| ccdbias | integer | 0 |
+| ccdbiasenabled | integer | 0 |
+| dos_instance | text | extern |
+| fxc_okay | text | 1 |
 | gfa_fan_in_en | integer | 0 |
 | gfa_fan_out_en | integer | 0 |
-| pcid | integer | 0 |
-| time | text | 2022-06-14T15:13:17.509106 |
+| gfa_ovrtmp | integer | 0 |
+| gfa_ptl_status | integer | 1 |
 | gfapwr_en | text | 0 |
-| tec_ctrl | text | 0 |
-| fxc_okay | text | 1 |
-| ccdbiasenabled | integer | 0 |
-| ccdbias | integer | 0 |
-| telemetryfault | integer | 0 |
-| status | jsonb | {} |
-| simulated | integer | 0 |
-| time_recorded | timestamp with time zone | 2022-06-14 15:13:17.581603+00:00 |
-| dos_instance | text | extern |
+| pcid | integer | 0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2022-06-14 15:13:17.591096+00:00 |
 | row_status_user | text | desi_writer |
+| simulated | integer | 0 |
+| status | jsonb | {} |
+| tec_ctrl | text | 0 |
+| telemetryfault | integer | 0 |
+| time | text | 2022-06-14T15:13:17.509106 |
+| time_recorded | timestamp with time zone | 2022-06-14 15:13:17.581603+00:00 |
 
 ### gfa_ptl_powerup
 
@@ -4005,18 +4050,18 @@ Shared variable `GFA_PTL-POWERUP`.
 
 | Field | Type | Example |
 |---|---|---|
-| gfa_ptl_powerup | integer | 1 |
-| time | text | 2022-06-14T15:13:08.434214 |
-| pcid | integer | 0 |
-| thresholds | jsonb | {'CURR_GXB_WARN': 100, 'TACH_FAN_WARN': 2000, 'TE... |
-| status | jsonb | {} |
-| network_status | jsonb | {'is_up': True, 'is_alive': True, 'was_lost': Fal... |
-| simulated | integer | 0 |
-| time_recorded | timestamp with time zone | 2022-06-14 15:13:08.484375+00:00 |
 | dos_instance | text | extern |
+| gfa_ptl_powerup | integer | 1 |
+| network_status | jsonb | {'is_up': True, 'is_alive': True, 'was_lost': Fal... |
+| pcid | integer | 0 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2022-06-14 15:13:08.493435+00:00 |
 | row_status_user | text | desi_writer |
+| simulated | integer | 0 |
+| status | jsonb | {} |
+| thresholds | jsonb | {'CURR_GXB_WARN': 100, 'TACH_FAN_WARN': 2000, 'TE... |
+| time | text | 2022-06-14T15:13:08.434214 |
+| time_recorded | timestamp with time zone | 2022-06-14 15:13:08.484375+00:00 |
 
 ### ocs_astrometry
 
@@ -4024,24 +4069,24 @@ Shared variable `OCS_ASTROMETRY`.
 
 | Field | Type | Example |
 |---|---|---|
-| ocs_astrometry | integer | 1 |
+| astro_fwhm | double precision |  |
+| astro_magoff | double precision |  |
+| astro_rmsx | double precision |  |
+| astro_rmsy | double precision |  |
+| astro_status | integer |  |
 | astrometry | text |  |
-| time_recorded | timestamp with time zone | 2022-10-26 15:09:28.368624+00:00 |
 | dos_instance | text | desi_20221025 |
+| expid | integer |  |
+| found_stars | integer |  |
+| gfas_in_solution | integer |  |
+| matched_stars | integer |  |
+| ocs_astrometry | integer | 1 |
+| offsetx | double precision |  |
+| offsety | double precision |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2022-10-26 15:09:28.369512+00:00 |
 | row_status_user | text | desi_writer |
-| matched_stars | integer |  |
-| gfas_in_solution | integer |  |
-| astro_rmsx | double precision |  |
-| astro_rmsy | double precision |  |
-| astro_fwhm | double precision |  |
-| astro_magoff | double precision |  |
-| astro_status | integer |  |
-| expid | integer |  |
-| found_stars | integer |  |
-| offsetx | double precision |  |
-| offsety | double precision |  |
+| time_recorded | timestamp with time zone | 2022-10-26 15:09:28.368624+00:00 |
 
 ### spottrack_camerastatus
 
@@ -4049,33 +4094,33 @@ Shared variable `SPOTTRACK_CAMERASTATUS`.
 
 | Field | Type | Example |
 |---|---|---|
-| spottrack_camerastatus | integer | 1 |
-| open | integer | 1 |
-| reset | integer | 1 |
+| act_exptime | integer | 0 |
+| camera_tmp | double precision | 23.0 |
+| cluster_count | integer | 0 |
+| dos_instance | text | extern |
+| error | integer | 0 |
+| execution_status | text |  |
+| expframe | integer | 0 |
+| expid | integer | 0 |
 | expose | integer | 0 |
 | idle | integer | 1 |
-| process | integer | 0 |
-| error | integer | 0 |
-| last_updated | text | 2023-02-14T23:28:55.678930 |
-| camera_tmp | double precision | 23.0 |
-| sensor_tmp | double precision | -9.9 |
-| pwrsuppy_tmp | double precision | 13.0 |
-| receive_cnt | integer | 0 |
-| rec_state | text | STOP |
 | image_rate | double precision | 0.2 |
+| last_updated | text | 2023-02-14T23:28:55.678930 |
 | miss_count | integer | 0 |
-| spot_count | integer | 0 |
-| cluster_count | integer | 0 |
-| track_count | integer | 0 |
-| act_exptime | integer | 0 |
-| expid | integer | 0 |
-| expframe | integer | 0 |
-| time_recorded | timestamp with time zone | 2023-02-14 23:28:55.684679+00:00 |
-| dos_instance | text | extern |
+| open | integer | 1 |
+| process | integer | 0 |
+| pwrsuppy_tmp | double precision | 13.0 |
+| rec_state | text | STOP |
+| receive_cnt | integer | 0 |
+| reset | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2023-02-14 23:28:55.686158+00:00 |
 | row_status_user | text | desi_writer |
-| execution_status | text |  |
+| sensor_tmp | double precision | -9.9 |
+| spot_count | integer | 0 |
+| spottrack_camerastatus | integer | 1 |
+| time_recorded | timestamp with time zone | 2023-02-14 23:28:55.684679+00:00 |
+| track_count | integer | 0 |
 
 ### frontilluminator_fioutlets
 
@@ -4083,14 +4128,14 @@ Shared variable `FRONTILLUMINATOR_FIOUTLETS`.
 
 | Field | Type | Example |
 |---|---|---|
-| frontilluminator_fioutlets | integer | 1 |
-| time_recorded | timestamp with time zone | 2023-08-03 03:05:12.725474+00:00 |
 | dos_instance | text | extern |
+| frontilluminator_fioutlets | integer | 1 |
+| petal0 | integer |  |
+| petal5 | integer |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2023-08-03 03:05:12.733007+00:00 |
 | row_status_user | text | desi_writer |
-| petal5 | integer |  |
-| petal0 | integer |  |
+| time_recorded | timestamp with time zone | 2023-08-03 03:05:12.725474+00:00 |
 
 ### lux_telemetry
 
@@ -4098,14 +4143,14 @@ Shared variable `LUX_TELEMETRY`.
 
 | Field | Type | Example |
 |---|---|---|
-| lux_telemetry | integer | 1 |
-| time_recorded | timestamp with time zone | 2023-12-27 20:40:59+00:00 |
+| dome | jsonb |  |
 | dos_instance | text | extern |
+| lux_telemetry | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2023-12-27 20:40:59.821066+00:00 |
 | row_status_user | text | desi_writer |
 | shack | jsonb |  |
-| dome | jsonb |  |
+| time_recorded | timestamp with time zone | 2023-12-27 20:40:59+00:00 |
 
 ### nfs_requesttime
 
@@ -4113,15 +4158,15 @@ Shared variable `NFS_REQUESTTIME`.
 
 | Field | Type | Example |
 |---|---|---|
-| nfs_requesttime | integer | 1 |
-| requesttime | double precision | 0.038 |
-| time_recorded | timestamp with time zone | 2024-02-26 00:52:36.267245+00:00 |
 | dos_instance | text | desi_20240225 |
+| nfs_requesttime | integer | 1 |
+| program | text |  |
+| requesttime | double precision | 0.038 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2024-02-26 00:52:36.270451+00:00 |
 | row_status_user | text | desi_writer |
 | tile | integer |  |
-| program | text |  |
+| time_recorded | timestamp with time zone | 2024-02-26 00:52:36.267245+00:00 |
 
 ### spectrographs_cpuload
 
@@ -4129,18 +4174,18 @@ Shared variable `SPECTROGRAPHS_CPULOAD`.
 
 | Field | Type | Example |
 |---|---|---|
-| spectrographs_cpuload | integer | 1 |
-| unit | text | CCDS5R |
+| ccd | text |  |
 | cpu | double precision | 48.2 |
-| virtmem | double precision | 7.8 |
-| time_recorded | timestamp with time zone | 2024-04-03 14:29:08.440632+00:00 |
 | dos_instance | text | extern |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2024-04-03 14:29:08.458449+00:00 |
 | row_status_user | text | desi_writer |
-| sp | integer |  |
 | sm | integer |  |
-| ccd | text |  |
+| sp | integer |  |
+| spectrographs_cpuload | integer | 1 |
+| time_recorded | timestamp with time zone | 2024-04-03 14:29:08.440632+00:00 |
+| unit | text | CCDS5R |
+| virtmem | double precision | 7.8 |
 
 ### ocs_nfsconstraints
 
@@ -4148,16 +4193,16 @@ Shared variable `OCS_NFSCONSTRAINTS`.
 
 | Field | Type | Example |
 |---|---|---|
-| ocs_nfsconstraints | integer | 1 |
-| elrange | ARRAY |  |
 | azrange | ARRAY |  |
-| static_fa_only | integer |  |
-| expid | integer |  |
-| time_recorded | timestamp with time zone | 2024-12-16 20:03:45.358968+00:00 |
 | dos_instance | text | desi_20241215 |
+| elrange | ARRAY |  |
+| expid | integer |  |
+| ocs_nfsconstraints | integer | 1 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2024-12-16 20:03:45.359719+00:00 |
 | row_status_user | text | desi_writer |
+| static_fa_only | integer |  |
+| time_recorded | timestamp with time zone | 2024-12-16 20:03:45.358968+00:00 |
 
 ### spectrographs_actuators
 
@@ -4165,39 +4210,39 @@ Shared variable `SPECTROGRAPHS_ACTUATORS`.
 
 | Field | Type | Example |
 |---|---|---|
-| spectrographs_actuators | integer | 1 |
-| focus_serial | integer | 26250023 |
-| wavetilt_serial | integer | 26250070 |
-| fibertilt_serial | integer | 26250080 |
-| focus_initialized | integer | 0 |
-| wavetilt_initialized | integer | 0 |
-| fibertilt_initialized | integer | 0 |
-| focus_homed | integer | 0 |
-| wavetilt_homed | integer | 0 |
-| fibertilt_homed | integer | 0 |
+| collimator_power | integer |  |
+| default_fibertilt_posmm | double precision | 10.891 |
 | default_focus_posmm | double precision | 9.295 |
 | default_wavetilt_posmm | double precision | 6.807 |
-| default_fibertilt_posmm | double precision | 10.891 |
-| focus_posmm | double precision | 9.295 |
-| wavetilt_posmm | double precision | 6.807 |
-| fibertilt_posmm | double precision | 10.891 |
-| message | text |  |
-| updated | text | 2025-01-14T15:19:30.084423 |
-| simulated | integer | 0 |
-| time_recorded | timestamp with time zone | 2025-01-14 15:19:30.089002+00:00 |
-| unit | integer | 7 |
-| specid | integer | 8 |
 | dos_instance | text | extern |
+| fibertilt_homed | integer | 0 |
+| fibertilt_initialized | integer | 0 |
+| fibertilt_posmm | double precision | 10.891 |
+| fibertilt_serial | integer | 26250080 |
+| fibertilt_usb | text |  |
+| focus_homed | integer | 0 |
+| focus_initialized | integer | 0 |
+| focus_posmm | double precision | 9.295 |
+| focus_serial | integer | 26250023 |
+| focus_usb | text |  |
+| message | text |  |
+| motors | integer |  |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2025-01-14 15:19:30.128435+00:00 |
 | row_status_user | text | desi_writer |
+| simulated | integer | 0 |
+| specid | integer | 8 |
+| spectrographs_actuators | integer | 1 |
 | status | integer |  |
+| time_recorded | timestamp with time zone | 2025-01-14 15:19:30.089002+00:00 |
+| unit | integer | 7 |
+| updated | text | 2025-01-14T15:19:30.084423 |
 | usb | integer |  |
-| motors | integer |  |
-| collimator_power | integer |  |
-| focus_usb | text |  |
+| wavetilt_homed | integer | 0 |
+| wavetilt_initialized | integer | 0 |
+| wavetilt_posmm | double precision | 6.807 |
+| wavetilt_serial | integer | 26250070 |
 | wavetilt_usb | text |  |
-| fibertilt_usb | text |  |
 
 ### calibration_calpduswitch
 
@@ -4207,12 +4252,12 @@ Shared variable `CALIBRATION_CALPDUSWITCH`.
 |---|---|---|
 | calibration_calpduswitch | integer | 1 |
 | calpduswitch | text |  |
-| time_recorded | timestamp with time zone | 2025-08-12 18:29:04.113326+00:00 |
 | dos_instance | text | desi_20250811 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2025-08-12 18:29:04.114414+00:00 |
 | row_status_user | text | desi_writer |
 | state | integer |  |
+| time_recorded | timestamp with time zone | 2025-08-12 18:29:04.113326+00:00 |
 
 ### calibration_booted
 
@@ -4221,12 +4266,12 @@ Shared variable `CALIBRATION_BOOTED`.
 | Field | Type | Example |
 |---|---|---|
 | calibration_booted | integer | 1 |
-| time_recorded | timestamp with time zone | 2025-08-15 19:21:47.331157+00:00 |
 | dos_instance | text | desi_20250814 |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2025-08-15 19:21:47.331735+00:00 |
 | row_status_user | text | desi_writer |
 | state | integer |  |
+| time_recorded | timestamp with time zone | 2025-08-15 19:21:47.331157+00:00 |
 
 ### pc_ptltcan
 
@@ -4234,17 +4279,17 @@ Shared variable `PC_PTLTCAN`.
 
 | Field | Type | Example |
 |---|---|---|
-| pc_ptltcan | integer | 1 |
-| pctime | timestamp with time zone | 2025-09-10 02:15:51.533155+00:00 |
-| pcid | integer | 7 |
-| simulated | integer | 0 |
-| rec | jsonb | {'can30': -1, 'can31': -1, 'can32': -1, 'can33': ... |
-| tec | jsonb | {'can30': -1, 'can31': -1, 'can32': -1, 'can33': ... |
-| time_recorded | timestamp with time zone | 2025-09-10 02:15:51.591428+00:00 |
 | dos_instance | text | extern |
+| pc_ptltcan | integer | 1 |
+| pcid | integer | 7 |
+| pctime | timestamp with time zone | 2025-09-10 02:15:51.533155+00:00 |
+| rec | jsonb | {'can30': -1, 'can31': -1, 'can32': -1, 'can33': ... |
 | row_status | text | M |
 | row_status_time | timestamp with time zone | 2025-09-10 02:15:51.604396+00:00 |
 | row_status_user | text | desi_writer |
+| simulated | integer | 0 |
+| tec | jsonb | {'can30': -1, 'can31': -1, 'can32': -1, 'can33': ... |
+| time_recorded | timestamp with time zone | 2025-09-10 02:15:51.591428+00:00 |
 
 ### Requested tables not found in this snapshot
 
