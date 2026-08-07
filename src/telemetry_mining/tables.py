@@ -26,8 +26,8 @@ class TableSource:
       of a query you already ran and want to reuse. Not cached (it's already
       in memory); re-indexed on first use per Exposure, non-destructively
       (your original DataFrame is never mutated).
-    - `path`: a `.csv` or FITS (`.fits`/`.fits.gz`/`.fz`) file to load,
-      cached by (mtime, size) so a long-lived process picks up a changed
+    - `path`: a `.csv`, `.parquet`, or FITS (`.fits`/`.fits.gz`/`.fz`) file to
+      load, cached by (mtime, size) so a long-lived process picks up a changed
       file without needing a restart. For FITS, `extension` selects which
       HDU to read (name or index; default 1, the first non-primary HDU).
     - `loader`: a zero-argument callable returning a DataFrame, for full
@@ -48,6 +48,10 @@ class TableSource:
             raise ValueError(
                 f"TableSource {self.name!r}: exactly one of dataframe, path, or loader must be given"
             )
+        # accept a plain string (or any os.PathLike) for `path` -- coerce to Path
+        # so _load_path's path.stat()/.suffixes work (frozen dataclass -> setattr)
+        if self.path is not None and not isinstance(self.path, Path):
+            object.__setattr__(self, "path", Path(self.path))
 
 
 DEFAULT_TABLE_SOURCES: list = []
@@ -79,6 +83,8 @@ def _load_path(source: TableSource):
     suffix = "".join(path.suffixes).lower()
     if suffix.endswith(".csv"):
         df = pd.read_csv(path)
+    elif suffix.endswith(".parquet") or suffix.endswith(".pq"):
+        df = pd.read_parquet(path)
     elif suffix.endswith(".fits") or suffix.endswith(".fits.gz") or suffix.endswith(".fz"):
         from .fits_io import _import_fitsio, _to_native_byteorder
 
@@ -90,7 +96,7 @@ def _load_path(source: TableSource):
     else:
         raise ValueError(
             f"TableSource {source.name!r}: don't know how to load {path} "
-            "(supported: .csv, .fits/.fits.gz/.fz -- load it yourself and pass dataframe=... for anything else)"
+            "(supported: .csv, .parquet, .fits/.fits.gz/.fz -- load it yourself and pass dataframe=... for anything else)"
         )
     df = _ensure_indexed(df, source.index_column)
     _cache[path] = (cache_key, df)
