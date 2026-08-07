@@ -20,7 +20,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Optional, Sequence
 
-from . import db, etc as etc_mod, gfa, paths as paths_mod, redux, tables, telemetry
+from . import db, etc as etc_mod, fiber_loss, gfa, paths as paths_mod, redux, tables, telemetry
 from .config import Config
 from .exceptions import DataSourceUnavailableError, ExposureNotFoundError
 from .fits_io import (
@@ -516,6 +516,103 @@ class Exposure:
     def all_table_sources(self) -> dict:
         """{name: result} for every configured TableSource (each cached per name)."""
         return {name: self.table_source(name) for name in self.table_source_names}
+
+    # ---- fiber-loss metrics (docs/FIBER_LOSS_METRICS.md) ----
+
+    @cached_property
+    def L_see(self) -> Optional[float]:
+        """Whole-array seeing fiber-loss level for this exposure, or None.
+
+        The artifact-free `RCALIBFRAC`-*level* replacement: 1 - A(sigma, 0)/A(sigma_ref, 0) from the
+        offline GFA seeing. Computed directly (offline GFA `FWHM_ASEC` -> `desimodel` acceptance
+        model); if that isn't possible here (no offline GFA product, or `desimodel` unavailable -- e.g.
+        at KPNO), it transparently falls back to a registered `fiber_loss_metrics` table source, and is
+        None if neither is available. See scripts/build_fiber_loss_metrics.py to build that table.
+        """
+        fwhm = self._gfa_fwhm()
+        if fwhm is not None:
+            v = fiber_loss.l_see_from_fwhm(fwhm)
+            if v is not None:
+                return v
+        return self._table_metric("L_see")
+
+    @cached_property
+    def L_field(self) -> Optional[float]:
+        """Field-distortion (DAR) fiber-loss for this exposure, or None.
+
+        The offset-driven, field-varying loss complementing `L_see`. Computed directly from the ETC
+        per-frame scale+shear drift and the GFA seeing; falls back to a registered `fiber_loss_metrics`
+        table source where direct computation isn't possible, and is None if neither is available (also
+        None for a too-short exposure with no intra-exposure drift). Reliable for detection/relative use
+        at all airmass; its absolute magnitude is approximate above am ~ 1.8 (docs Sec 3.3).
+        """
+        v = self._compute_l_field()
+        if v is not None:
+            return v
+        return self._table_metric("L_field")
+
+    @cached_property
+    def parallactic(self) -> Optional[float]:
+        """Parallactic angle (degrees) for this exposure from the DB row, or None.
+
+        Used by `L_field`'s zenith-frame drift rotation. Looks for a 'parallactic' value at the top
+        level of `db_row` or inside a nested (jsonb) block such as 'telescope'.
+        [NERSC: confirm this resolves to the same value as data/dar_exposure_pointing.csv's column.]
+        """
+        try:
+            row = self.db_row
+        except (ExposureNotFoundError, DataSourceUnavailableError):
+            return None
+        for container in [row, *(v for v in row.values() if isinstance(v, dict))]:
+            val = container.get("parallactic") if hasattr(container, "get") else None
+            if val is not None:
+                try:
+                    return float(val)
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    def _gfa_fwhm(self) -> Optional[float]:
+        """This exposure's offline GFA seeing FWHM (arcsec), or None."""
+        row = self.gfa_row
+        if row is None:
+            return None
+        try:
+            val = row["FWHM_ASEC"]
+        except (KeyError, IndexError, TypeError):
+            return None
+        return float(val) if val is not None and val == val else None
+
+    def _compute_l_field(self) -> Optional[float]:
+        fwhm = self._gfa_fwhm()
+        par = self.parallactic
+        if fwhm is None or par is None:
+            return None
+        try:
+            thru = self.etc.get("thru")
+        except (DataSourceUnavailableError, FileNotFoundError, OSError, ValueError):
+            return None
+        drift = fiber_loss.sheardrift_from_thru(thru, par)
+        if drift is None:
+            return None
+        return fiber_loss.l_field_from_drift(
+            drift["mean_ds"], drift["mean_de1_rot"], drift["mean_de2_rot"], fwhm
+        )
+
+    def _table_metric(self, field: str) -> Optional[float]:
+        """Read `field` from a registered 'fiber_loss_metrics' table source, or None."""
+        if "fiber_loss_metrics" not in self.table_source_names:
+            return None
+        row = self.table_source("fiber_loss_metrics")
+        if row is None:
+            return None
+        val = row.get(field) if hasattr(row, "get") else None
+        if val is None or (isinstance(val, float) and val != val):
+            return None
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
 
     # ---- offline QA ----
 

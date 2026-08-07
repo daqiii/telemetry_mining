@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 fitsio = pytest.importorskip("fitsio")
@@ -67,6 +69,29 @@ def test_csv_path_source_and_cache(tmp_path):
     first = load_table(source)
     second = load_table(source)
     assert first is second  # cached, unchanged mtime/size
+
+
+def test_parquet_path_source_and_cache(tmp_path):
+    path = tmp_path / "data.parquet"
+    pd.DataFrame({"EXPID": [1, 2], "VAL": [100, 200]}).to_parquet(path)
+    source = TableSource(name="mine", path=path)
+
+    row = table_source_row(source, 2)
+    assert row["VAL"] == 200
+
+    first = load_table(source)
+    second = load_table(source)
+    assert first is second  # cached, unchanged mtime/size
+
+
+def test_csv_path_source_accepts_string_path(tmp_path):
+    # `path=` given as a plain string (as the docs show) must work, not just a Path
+    path = tmp_path / "data.csv"
+    path.write_text("EXPID,VAL\n1,100\n2,200\n")
+    source = TableSource(name="mine", path=str(path))
+
+    assert isinstance(source.path, Path)  # coerced at construction
+    assert table_source_row(source, 2)["VAL"] == 200
 
 
 def test_csv_path_source_cache_invalidated_on_change(tmp_path):
