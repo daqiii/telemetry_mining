@@ -53,6 +53,7 @@ flat→psf aperture correction was added to how `RCALIBFRAC` is computed (desisp
   - [Offline QA / reduction row](#offline-qa--reduction-row)
   - [Offline per-camera spectra (cframe)](#offline-per-camera-spectra-cframe)
   - [GFA offline summary](#gfa-offline-summary)
+  - [Fiber-loss metrics](#fiber-loss-metrics)
   - [FIBERQA](#fiberqa)
   - [PETALQA](#petalqa)
   - [FIBERQA per-fiber table](#fiberqa-per-fiber-table)
@@ -957,6 +958,41 @@ That file actually has three extensions, and the choice of which one matters:
 the quality-filtered `STRICT` set. `gfa_summary_row`/`load_gfa_summary` in
 `telemetry_mining.gfa` are the underlying functions if you need the whole
 table rather than one exposure's row.
+
+### Fiber-loss metrics
+
+```python
+exp.L_see        # float: whole-array seeing loss level, or None
+exp.L_field      # float: DAR field-distortion loss, or None
+exp.parallactic  # float: parallactic angle in degrees, or None
+```
+
+Two artifact-free, GFA-imaging-based per-exposure fiber-loss metrics (full treatment, with construction and
+use cases: `docs/FIBER_LOSS_METRICS.md`). `L_see` is the whole-array loss set by seeing (an artifact-free
+`RCALIBFRAC`-*level* replacement); `L_field` is the loss that *varies across the focal plane* from DAR field
+distortion.
+
+Each property **computes directly** from the offline inputs; if those aren't available at this site (or
+`desimodel` isn't installed) it **falls back** to a precomputed `fiber_loss_metrics` table source if one is
+registered, otherwise returns `None`. So the same attribute works at NERSC (direct) and KPNO (table), and the
+two paths return identical values. Direct-path inputs: `L_see` needs `exp.gfa_row`'s `FWHM_ASEC` + `desimodel`;
+`L_field` also needs the ETC per-frame guide drift (`exp.etc['thru']`) + `exp.parallactic`.
+
+`None` when unavailable: `L_see` for any exposure without GFA seeing; `L_field` additionally for too-short
+exposures (no intra-exposure drift to measure). `L_field`'s *absolute* magnitude is approximate above airmass
+≈ 1.8 (see the report); it is reliable for detection / relative use at all airmass.
+
+To enable the table fallback (e.g. at KPNO), build the table once with `scripts/build_fiber_loss_metrics.py`,
+then register it process-wide:
+
+```python
+from telemetry_mining.tables import TableSource, DEFAULT_TABLE_SOURCES
+DEFAULT_TABLE_SOURCES.append(
+    TableSource("fiber_loss_metrics", path="data/fiber_loss_metrics.parquet", index_column="EXPID"))
+```
+
+The math itself is in `telemetry_mining.fiber_loss` (`l_see_from_fwhm`, `sheardrift_from_thru`,
+`l_field_from_drift`) — shared with the precompute script so table and live attribute can't diverge.
 
 ### FIBERQA
 
