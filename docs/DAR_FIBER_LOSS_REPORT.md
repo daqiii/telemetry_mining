@@ -199,7 +199,7 @@ time-integrated.
 |---|---|
 | target drift over the exposure (parallactic rotation ~5°) | ~28 μm |
 | residual RMS even with perfect *midpoint* positioning | ~8 μm |
-| midpoint position − *integrated-loss-optimal* position | ~0.1 μm |
+| midpoint position − *integrated-loss-optimal* position | ~0.1 μm *(only if the fiber is placed at the midpoint — see Update 2026-08-10; it currently is not)* |
 
 - **Proximity to transit is the dominant lever.** For a fixed field the drift is minimized at transit and only
   grows off-meridian (as `dq/dt` falls, `tan z` rises and the previously-zero magnitude drift switches on). A
@@ -211,14 +211,49 @@ time-integrated.
 - **Cap exposure duration at high airmass** — the drift accumulates ∝ T, so shorter or split exposures reduce
   it; the ~1–2% loss is the quantity to weigh against the ~2-min-per-restart overhead (cost/benefit is out of
   scope here).
-- **Positioning is not the lever** — the exposure midpoint already coincides with the integrated-loss optimum
-  to ~0.1 μm; and the effect is **invisible to short (3-min) dither sequences** used to validate positioning,
-  which accumulate essentially no rotation drift by construction.
+- **Positioning — the midpoint is optimal, but the pipeline is not placing there** *(updated 2026-08-10)*. The
+  exposure midpoint coincides with the integrated-loss optimum to ~0.1 μm *if the fiber is placed there* — but a
+  fiber-placement timing bug currently puts it at ~the exposure **quarter-point** (see the Update below), so
+  positioning is in fact a real, recoverable lever. The effect remains **invisible to short (3-min) dither
+  sequences** used to validate positioning, which accumulate essentially no rotation drift by construction.
 - **Treat Dec ≤ −28° as a distinct, harder regime.** The DAR drift is larger there (higher airmass), and
   additionally the ADC has a hard **ZD = 60° / airmass 2.0** limit beyond which it no longer corrects the
   chromatic *dispersion* (a separate, secondary apparent-loss channel; Dec ≤ −28° fields never drop below it
   even at transit). The `r`-band `RCALIBFRAC` is largely immune to that dispersion channel, and no
   far-southern science sample exists yet to measure it — flagged, not quantified.
+
+> **Update (2026-08-10) — fiber-placement midpoint bug (found in a follow-up code review).** The
+> "positioning is not a lever" reading above is **superseded**. The optimizer's fiber-placement midtime should
+> be `min(esttime, 1800 s)/2` — the flux-weighted midpoint of the (possibly split) exposure, where `esttime` is
+> the dynamic scheduler's conditions-aware duration estimate (≈ `exptime`). A miscommunication applied a factor
+> of ½ on **both** the control side and inside PlateMaker, so the robots are optimized for `min(esttime,1800)/4`
+> — roughly the **exposure quarter-point, not the midpoint**. (A +120 s setup overhead is added *after* the ½
+> and is common-mode between the intended and buggy paths, so it does not offset the error.) Over the non-split
+> sample (`esttime ≤ 1800`, ~68% of exposures): the fiber is optimized for ~⅓ of the way through the exposure —
+> a **median ~184 s too early, with 93% of exposures placed too early**; correcting the double-½ moves it ~336 s
+> later, onto the true midpoint.
+>
+> Two consequences, kept separate:
+>
+> - **The dipole / sky-subtraction result — this report's headline — is unaffected.** A mis-timed placement is a
+>   purely *geometric* effect, and the boresight translation a dipole would ride on is removed by the guider in
+>   real time; what survives is a *field-differential* (scale+shear → **quadrupole**) residual. It adds to the
+>   real `Q_rot` / `L_field` channel and **cannot** contribute to the rotating dipole `D_rot` (the two are
+>   orthogonal in the fit). *(A prior `reqtime`/`exptime` midpoint elimination in the superseded dipole handoff
+>   regressed against `reqtime − exptime`, now known to be the wrong variable — but the dipole ruling never
+>   rested on it; it rests on the dither geometry, which shows no rotating dipole.)*
+>
+> - **Only the ~0.1 μm "midpoint-optimal" figure changes.** At the midpoint the positioning residual is
+>   second-order (~0.1 μm); at the quarter-point it is first-order. An order-of-magnitude estimate from the
+>   worked example above is a **few μm / sub-1 % loss** — a real, systematic, and **fixable** placement penalty
+>   already baked into every measured exposure. The exact per-exposure penalty (the proper successor to the
+>   0.1 μm) is deferred to a post-shutdown recomputation of the field-differential integral with the reference
+>   time set to `esttime/4`, restricted to `esttime ≤ 1800`.
+>
+> **Status:** bug confirmed; fix planned after the 2026 summer shutdown. Splits are excluded above because their
+> `esttime` is a *tile-level* estimate and the placement math is only clean for single integrations — note that
+> splits are disproportionately the high-airmass / long exposures where this penalty is *largest*, so the
+> non-split numbers characterize the mechanism but under-represent the worst case.
 
 ### The quadrupole itself confirms the lever — directly, in the data, artifact-free
 
