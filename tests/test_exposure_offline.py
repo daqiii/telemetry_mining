@@ -263,6 +263,28 @@ def test_telemetry_field_dispatches_nearest(monkeypatch, tmp_path):
     assert captured["kwargs"]["columns"] == ["mayall_particle_1_micron_5"]
 
 
+def test_telemetry_field_nearest_returns_none_when_time_unavailable(monkeypatch, tmp_path):
+    """A nearest lookup must not crash when the exposure's time can't be found.
+
+    Simulates KPNO: purged FITS file and no DB connection, so neither the DB
+    row nor the header can supply a start time. A nearest-in-time field should
+    resolve to None (treated as "no match") rather than raising and aborting a
+    whole sweep -- and it must not attempt the telemetry query at all.
+    """
+    cfg, directory = build_exposure_dir(tmp_path)
+    (directory / "desi-00255020.fits.fz").unlink()  # purged; cfg has no db_host
+    field = TelemetryField(name="dust", table="environmentmonitor_dust", columns=["mayall_particle_1_micron_5"])
+    exp = Exposure(255020, night=20240925, config=cfg, telemetry_fields=[field])
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("query_nearest must not run when the time is unavailable")
+
+    monkeypatch.setattr(telemetry, "query_nearest", fail_if_called)
+
+    assert exp.start_time is None
+    assert exp.telemetry_field("dust") is None
+
+
 def test_telemetry_field_dispatches_window(monkeypatch, tmp_path):
     cfg, _ = build_exposure_dir(tmp_path)
     field = TelemetryField(name="wind", table="environmentmonitor_tower", kind="window", pad_seconds=30.0)

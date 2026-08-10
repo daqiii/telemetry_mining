@@ -19,12 +19,20 @@ camera) -- too granular for exposure-level correlation, not used here.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from .config import Config
 from .exceptions import DataSourceUnavailableError
 
 _cache: dict = {}
+# Serializes the load-and-cache below. Without it, concurrent callers (e.g.
+# select_exposures with max_workers over an L_see/L_field/gfa_row spec) each open
+# the same FITS file at once -- fitsio/CFITSIO is not thread-safe for that, and a
+# garbled concurrent read can write a bad DataFrame into _cache, poisoning every
+# later lookup. Cache *hits* are checked before taking the lock, so the steady
+# state stays lock-free.
+_cache_lock = threading.Lock()
 
 _FILENAME_GLOB = "offline_matched_coadd_ccds_main-thru_*.fits"
 _EXTENSION = "EXPOSURE_SUMMARY_STRICT"
@@ -61,14 +69,20 @@ def load_gfa_summary(config: Config, refresh: bool = False):
     cached = _cache.get(path)
     if not refresh and cached is not None and cached[0] == cache_key:
         return cached[1]
-    fitsio = _import_fitsio()
-    with fitsio.FITS(str(path)) as f:
-        data = f[_EXTENSION].read()
-    df = pd.DataFrame(_to_native_byteorder(data))
-    if "EXPID" in df.columns:
-        df = df.set_index("EXPID", drop=False)
-    _cache[path] = (cache_key, df)
-    return df
+    with _cache_lock:
+        # Re-check under the lock: another thread may have loaded it while we waited,
+        # so only the first thread reads the FITS file and the rest reuse its result.
+        cached = _cache.get(path)
+        if not refresh and cached is not None and cached[0] == cache_key:
+            return cached[1]
+        fitsio = _import_fitsio()
+        with fitsio.FITS(str(path)) as f:
+            data = f[_EXTENSION].read()
+        df = pd.DataFrame(_to_native_byteorder(data))
+        if "EXPID" in df.columns:
+            df = df.set_index("EXPID", drop=False)
+        _cache[path] = (cache_key, df)
+        return df
 
 
 def gfa_summary_row(expid: int, config: Config):

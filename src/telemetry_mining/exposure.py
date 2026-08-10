@@ -68,6 +68,14 @@ def _parse_date_obs(value: str) -> dt.datetime:
     return parsed
 
 
+_MJD_EPOCH = dt.datetime(1858, 11, 17, tzinfo=dt.timezone.utc)
+
+
+def _mjd_to_datetime(mjd: float) -> dt.datetime:
+    """Convert an MJD (days) to a tz-aware UTC datetime."""
+    return _MJD_EPOCH + dt.timedelta(days=float(mjd))
+
+
 def _clean_scalar(value):
     """Normalize pandas' NaN-for-blank-CSV-cell into None.
 
@@ -320,37 +328,69 @@ class Exposure:
     # ---- telemetry correlation ----
 
     @cached_property
-    def time_window(self) -> tuple[dt.datetime, dt.datetime]:
-        """(start, end) of this exposure, from the DB record, falling back to the FITS header.
+    def start_time(self) -> Optional[dt.datetime]:
+        """Start timestamp of the exposure, or None if it can't be determined.
 
-        The header fallback itself may be unavailable -- e.g. at KPNO,
-        exposure files are purged from disk after ~6 months even though the
-        DB record persists -- so a failure to read the header is treated the
-        same as missing header keys, not left to propagate as a raw
-        FITS/OSError.
+        Purely a *timestamp* lookup -- it needs no exposure duration, so it
+        does not depend on `exptime`. Resolution order is DB-first:
+        `date_obs`, then `mjd_obs`, then the FITS header's DATE-OBS. Returns
+        None (rather than raising) when no source has a usable start time, so
+        callers that only need a timestamp -- nearest-in-time telemetry -- can
+        treat that as "no match" instead of a fatal error. The header itself
+        may be unavailable (KPNO purges exposure files after ~6 months even
+        though the DB record persists), which is handled the same as a missing
+        key, not left to propagate as a raw FITS/OSError.
         """
         try:
             row = self.db_row
-            start = row.get("date_obs")
-            exptime = row.get("exptime")
-            if start is not None and exptime is not None:
-                return start, start + dt.timedelta(seconds=float(exptime))
+            date_obs = row.get("date_obs")
+            if date_obs is not None:
+                return date_obs
+            mjd_obs = row.get("mjd_obs")
+            if mjd_obs is not None:
+                return _mjd_to_datetime(mjd_obs)
         except Exception:
             pass
         try:
-            header = self.header
-        except Exception as exc:
+            date_obs = self.header.get("DATE-OBS")
+        except Exception:
+            return None
+        if date_obs is None:
+            return None
+        return _parse_date_obs(date_obs)
+
+    @cached_property
+    def time_window(self) -> tuple[dt.datetime, dt.datetime]:
+        """(start, end) of this exposure, from the DB record, falling back to the FITS header.
+
+        Unlike `start_time`, this needs the exposure *duration* (`exptime`) to
+        place the end, so it is the accessor for window queries that genuinely
+        span the exposure. It raises `ExposureNotFoundError` if either the
+        start or the duration can't be determined -- callers that only need a
+        timestamp should use `start_time`, which does not require `exptime` and
+        returns None instead of raising.
+        """
+        start = self.start_time
+        if start is None:
             raise ExposureNotFoundError(
                 self.expid,
-                f"cannot determine time window (no usable DB row, and the FITS header is unavailable: {exc})",
-            ) from exc
-        date_obs = header.get("DATE-OBS")
-        exptime = header.get("EXPTIME")
-        if date_obs is None or exptime is None:
-            raise ExposureNotFoundError(
-                self.expid, "cannot determine time window (no DB row and no usable header keys)"
+                "cannot determine time window (no usable start time in DB row or FITS header)",
             )
-        start = _parse_date_obs(date_obs)
+        exptime = None
+        try:
+            exptime = self.db_row.get("exptime")
+        except Exception:
+            exptime = None
+        if exptime is None:
+            try:
+                exptime = self.header.get("EXPTIME")
+            except Exception:
+                exptime = None
+        if exptime is None:
+            raise ExposureNotFoundError(
+                self.expid,
+                "cannot determine time window (start found, but no exptime in DB row or FITS header)",
+            )
         return start, start + dt.timedelta(seconds=float(exptime))
 
     @classmethod
@@ -459,19 +499,33 @@ class Exposure:
         if field is None:
             raise KeyError(f"No telemetry field named {name!r} configured (available: {self.telemetry_field_names})")
 
-        start, end = self.time_window
         if field.kind == "nearest":
-            when = start if field.when == "start" else end
-            result = telemetry.query_nearest(
-                self.config,
-                field.table,
-                when,
-                columns=field.columns,
-                time_column=field.time_column,
-                schema=field.schema,
-                max_delta_seconds=field.max_delta_seconds,
-            )
+            # A nearest-in-time lookup only needs a single timestamp, so it uses
+            # start_time (no exptime dependency) and never touches the FITS files
+            # when the DB has the start. If the time can't be determined at all,
+            # treat it as "no match" (None) rather than crashing the caller -- one
+            # exposure with an unresolvable time must not abort a whole sweep.
+            if field.when == "start":
+                when = self.start_time
+            else:
+                try:
+                    _, when = self.time_window
+                except ExposureNotFoundError:
+                    when = None
+            if when is None:
+                result = None
+            else:
+                result = telemetry.query_nearest(
+                    self.config,
+                    field.table,
+                    when,
+                    columns=field.columns,
+                    time_column=field.time_column,
+                    schema=field.schema,
+                    max_delta_seconds=field.max_delta_seconds,
+                )
         else:  # 'window'
+            start, end = self.time_window
             result = telemetry.query_window(
                 self.config,
                 field.table,

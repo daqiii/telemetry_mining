@@ -1,6 +1,6 @@
 # Recommended DESI Fiber-Loss Metrics and Their Scope
 
-K. Honscheid (OSU) with Claude (Anthropic) · 2026-08-06 (Exposure API added 2026-08-07)
+K. Honscheid (OSU) with Claude (Anthropic) · 2026-08-06 (Exposure API added 2026-08-07; worked examples added 2026-08-10)
 
 Companion note to `DAR_FIBER_LOSS_REPORT.md`. That report established
 that `RCALIBFRAC` — the standard-star measured/model flux ratio — is
@@ -468,3 +468,20 @@ DEFAULT_TABLE_SOURCES.append(
 **Lower-level access.** The metric math itself lives in `telemetry_mining.fiber_loss` — `l_see_from_fwhm`,
 `sheardrift_from_thru`, `l_field_from_drift` — if you want to compute the metrics outside of an `Exposure`
 (e.g. in a batch job over precomputed inputs). That is exactly what `build_fiber_loss_metrics.py` does.
+
+## 8. Worked examples
+
+Runnable, heavily-commented notebooks under `notebooks/` — each is a template for a common study pattern, and
+the notebooks (not this section) are the living source for the analysis detail. **Run any of these under the
+DESI Master kernel** — the direct compute needs `desimodel`, and its absence fails silently to `None`.
+
+- **`mirror_seeing_lsee_example_selectexp.ipynb`** — `L_see` vs mirror−air ΔT (the mirror-seeing hypothesis).
+  Demonstrates `exp.L_see` pulled in bulk with `select_exposures` (`db_row` specs for the free DB columns, a
+  callable for the metric), and the asymmetric warm-mirror rise.
+- **`lfield_dam_example_selectexp.ipynb`** — `L_field` vs intra-exposure `|Δairmass|` (a DAR scheduling lever).
+  Demonstrates `exp.L_field` via `select_exposures` with `max_workers` (justified here — `L_field` does a real
+  per-exposure ETC read) and a self-regenerating disk cache (rebuilt live when missing or built for a different
+  sample), plus an airmass-controlled analysis and the derotated per-fiber quadrupole map behind the scalar.
+- **`rcalibfrac_vs_lfield_example.ipynb`** — why `RCALIBFRAC` isn't a clean metric: its per-fiber field is
+  dominated by the rotating dipole artifact (D_rot/Q_rot ≈ 1.9) versus `L_field`'s pure quadrupole
+  (D_rot = 0). A side-by-side, team-presentation comparison (runs locally on precomputed fields).
