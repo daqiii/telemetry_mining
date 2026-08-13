@@ -1,4 +1,4 @@
-# Measured-vs-Expected Flux from Standard Stars: `RCALIBFRAC`, Its Sky-Subtraction Bias, and Which Variable to Use
+# Measured-vs-Expected Flux from Standard Stars (`RCALIBFRAC`): Sky-Subtraction Bias, and Which Variable to Use
 
 **Status:** for the Data Systems / calibration team (J. Guy). Part of the `telemetry_mining` / Exposure-module
 documentation family; companion to `DAR_FIBER_LOSS_REPORT.md` (the DAR study that produced the sky-subtraction
@@ -32,21 +32,26 @@ predated the sky-subtraction finding and the geometric metrics).
      airmass-growing dipole that *looks like* DAR but is a **flux-processing bias entering at `subtract_sky`**,
      general to all point-source spectrophotometry — not a `RCALIBFRAC`-specific effect. We localized it and
      ruled out several mechanisms, but the exact algorithmic step is **not pinned**.
-- **Which variable to use:**
-  - **Level / loss-attribution** (seeing, wind, mirror-ΔT, …) → **`RATIO_RAW`** (raw absolute measured/model,
-    aperture-correction off). The dipole is a *pattern* and averages out over the focal plane, so this is clean
-    for level work — but note it does **not** escape the sky-subtraction bias for anything spatial.
-  - **Absolute, science-grade throughput** → the **flux-cal scale**, derived from the per-exposure
-    `fluxcalib-*.fits` vectors in the redux tree (a small accessor, not yet built).
-  - **Spatial / DAR structure** → **no flux ratio is clean.** Use the artifact-free **geometric** GFA metrics
-    `L_see` / `L_field` (see `FIBER_LOSS_METRICS.md`); the dither offset field is the only clean geometric probe.
+- **Which variable to use** (the crux — see §5; note `L_see`/`RATIO_RAW` are *not* interchangeable — one is a
+  modeled seeing *predictor*, the other the total measured *outcome*):
+  - **Seeing-loss level** (the clean stand-in for `RCALIBFRAC`'s seeing content) → **`L_see`** — artifact-free,
+    GFA-based, and **available now**. This is what most level studies (dome / mirror seeing, transparency-free
+    conditions) actually want.
+  - **The total measured loss, to attribute across *all* channels** (transparency, positioning, throughput, …) →
+    **`RATIO_RAW`** (raw absolute measured/model). Its dipole averages out over the focal plane, so it is clean
+    for level work — but it does **not** exist yet (needs reprocessing), and its non-redundant content vs `L_see`
+    is only the *non-seeing* channels. For the total *throughput* specifically the **flux-cal scale** is an
+    already-on-disk alternative.
+  - **Spatial / DAR field structure** → **no flux ratio is clean.** Use **`L_field`** (field-distortion; `L_see`
+    is the level companion); the dither offset field is the only clean flux-independent geometric probe. **We
+    chose this GFA-based geometric approach for the `telemetry_mining` / Exposure-module product.**
   - **Depth / "good exposure?"** → `EFFTIME_SPEC` / `TSNR2` (convenient but conflates throughput, transparency,
     sky, and time).
 - **For `desispec` (details in the last section):** one finding to hand over — the **`subtract_sky` point-source
   dipole** (a real, zenith-tied bias in a pipeline product; localized to that step, mechanism not yet
-  identified). The known mid-2025 `RCALIBFRAC` discontinuity is *not* an ask on the team — for our purposes it is
-  simply avoided by working from a uniformly-reprocessed release (e.g. Matterhorn or Nevis) instead of the
-  `daily` archive.
+  identified). The known mid-2025 `RCALIBFRAC` discontinuity is *not* an ask on the team — for our purposes it
+  could simply be avoided (if needed) by working from a uniformly-reprocessed release (e.g. Matterhorn or Nevis)
+  instead of the `daily` archive.
 
 ---
 
@@ -60,7 +65,7 @@ stars are the only per-exposure, on-sky, absolute reference we have, so every me
 is anchored on them. *(Caveat: the "truth" is only as good as the template/photometry calibration — the best
 available reference, not a perfect absolute.)*
 
-## 2. How `RCALIBFRAC` is built — two construction layers to know
+## 2. How `RCALIBFRAC` is built — as we understand it
 
 From `desispec/scripts/select_calib_stars.py`, per exposure:
 
@@ -118,13 +123,13 @@ boundary.)
 
 ## 4. The deeper bias: a sky-subtraction dipole in the measured flux
 
-This is the finding that motivated the rewrite, and the reason `RCALIBFRAC` is **not** a clean flux-loss
+This is the finding that motivated the write-up, and the reason `RCALIBFRAC` is **not** a clean flux-loss
 estimator for *spatial* (DAR) studies. Full evidence, figures, and DAR context are in `DAR_FIBER_LOSS_REPORT.md`
 (Parts IV–V); summarized here because it is fundamentally a *measured-flux* property.
 
 **What it is.** Decomposing `RCALIBFRAC`'s per-fiber loss map into multipoles in a zenith-aligned (derotated)
 frame yields, besides the real radial and quadrupole terms, a **rotating dipole** `D_rot` — a coherent,
-zenith-tied, airmass-growing whole-field gradient, ~2× the quadrupole. It *looks* like a DAR boresight offset.
+zenith-tied, airmass-growing whole-field gradient, ~2× the quadrupole (DAR). It *looks* like a DAR boresight offset.
 It is not.
 
 **It is not geometric.** DESI's **dither sequences** (Schlafly et al. 2024, arXiv:2403.05688) measure the
@@ -198,30 +203,37 @@ quadrupole *partially* (a real DAR quadrupole, ~11 μm at high airmass, survives
 | variable | construction | what it folds | best for | availability |
 |---|---|---|---|---|
 | **`RCALIBFRAC`** | measured/model, aperture-corrected (fixed 1.1″), median-normalized | within-exposure *differential* loss; **spatial structure carries the sky-sub dipole** | *instrument-fixed* spatial patterns (per-petal, positioner); **not** DAR/zenith-tied structure | now (calibstars) |
-| **`RATIO_RAW`** *(proposed)* | measured/model, **no** aperture correction, **un-normalized** | the true absolute measured-vs-expected, aperture loss included | **level loss-attribution** (dipole averages out); **not** spatial | needs reprocessing |
+| **`RATIO_RAW`** *(proposed)* | measured/model, **no** aperture correction, **un-normalized** | the **total** measured loss — *all* channels: transparency, extinction, instrument throughput, **and** aperture loss | attributing the total loss, esp. the **non-seeing** channels (transparency, positioning); dipole averages out, so ok for level | needs reprocessing |
 | **`medval` / `MEDVAL_RAW`** | per-exposure median of the ratio | absolute r-band throughput scalar | absolute throughput per exposure | `medval` computed but **not saved** → reprocessing |
 | **flux-cal scale** | r-band normalization of the per-exposure `fluxcalib-*.fits` vector | absolute throughput **after** aperture correction (actual seeing), wavelength-resolved | absolute, science-grade throughput | vector on disk (redux tree); scale **derived — accessor not built** |
 | **`EFFTIME_SPEC` / `TSNR2`** | achieved depth | throughput × transparency × sky × time (**conflated**) | exposure quality / depth flag | now (`redux_row`, `petalqa`, `fiberqa`) |
-| **`L_see` / `L_field`** | GFA imaging (seeing / intra-exposure guide drift) → acceptance model | seeing loss *level* / DAR field-distortion loss — **artifact-free, dipole-free by construction** | **spatial / DAR structure**; the clean replacement for `RCALIBFRAC`'s spatial use | now (`Exposure`); see `FIBER_LOSS_METRICS.md` |
+| **`L_see`** (level) / **`L_field`** (spatial) | GFA imaging (seeing / intra-exposure guide drift) → acceptance model | **`L_see`**: the seeing-loss *level* (a scalar); **`L_field`**: DAR field-distortion — both **artifact-free, dipole-free** | **`L_see`**: seeing-loss level (the clean, *available* stand-in for `RCALIBFRAC`'s seeing content); **`L_field`**: DAR / spatial structure | now (`Exposure`); see `FIBER_LOSS_METRICS.md` |
 
-**What to use when:**
+**What to use when.** The key distinction, easy to blur: **`L_see`** is a *modeled predictor* of the seeing
+channel; **`RATIO_RAW`** is the *total measured outcome* you attribute. They sit on opposite sides of the
+regression — not substitutes. (A cloudy but good-seeing exposure makes this concrete: `L_see` reads "low loss,"
+`RATIO_RAW` reads "high loss" — the clouds are in `RATIO_RAW` and invisible to `L_see`.)
 
-- **Level / loss-attribution** (correlate against seeing, wind, mirror-ΔT, transparency) → **`RATIO_RAW`** *is
-  the right variable* — it keeps the aperture-loss signal you want to attribute, and the sky-sub dipole averages
-  out over the focal plane (a pattern, monopole-null; *clean for level by averaging, not by being
-  artifact-free*). But **it does not exist yet** (§6). Until it is built, the practical options are the
-  **flux-cal scale** (absolute, science-grade — derived from the `fluxcalib-*.fits` vectors, accessor not yet
-  built) or **focal-plane-averaged `RCALIBFRAC`** (the *differential* level only — median-normalized — and mind
-  the §3 epoch step for any cross-time work).
+- **Seeing-loss level** (dome / mirror seeing, transparency-free conditions) → **`L_see`** — the artifact-free,
+  GFA-based, **available-now** measure. It is essentially a deterministic function of the GFA seeing, so it is
+  the clean stand-in for `RCALIBFRAC`'s seeing content and a key *predictor* — but **blind to everything that
+  isn't seeing** (transparency, positioning / DAR offset, instrument throughput). For most level studies this is
+  what you actually want, and it needs no reprocessing.
+- **The total measured loss, to attribute across channels** → **`RATIO_RAW`** *is the right dependent variable*
+  — `measured/model` keeps the full throughput (transparency, extinction, instrument) **and** every aperture-loss
+  channel, and its sky-sub dipole averages out over the focal plane (a pattern, monopole-null; *clean for level
+  by averaging, not by being artifact-free*). Two caveats: it **does not exist yet** (§6), and its only content
+  *beyond* `L_see` is the **non-seeing** channels — so it earns its reprocessing only if those are the target.
+  (Interim, focal-plane-averaged `RCALIBFRAC` gives the *differential* level only — median-normalized, and mind
+  the §3 epoch step.)
 - **Absolute, science-grade throughput** → the **flux-cal scale** — the r-band normalization of the per-exposure
   flux-calibration vector, `$DESI_SPECTRO_REDUX/<release>/exposures/<night>/<expid:08d>/fluxcalib-<cam>-<expid:08d>.fits`
   (actual-seeing correction, wavelength-resolved). The product is on disk in the redux tree, but extracting the
   scalar scale needs a small accessor we have **not built yet** (the `Exposure` module has
   `cframe`/`exposure_qa`/`calibstars` path helpers, no `fluxcalib`).
-- **Spatial / DAR structure** → **do not use a flux ratio.** Use **`L_see`** (loss level) and **`L_field`**
-  (field-distortion), which are built from GFA imaging and never touch sky-subtracted flux. The dither offset
-  field is the only clean flux-independent geometric probe. See `FIBER_LOSS_METRICS.md` and
-  `DAR_FIBER_LOSS_REPORT.md`.
+- **Spatial / DAR field structure** → **do not use a flux ratio.** Use **`L_field`** (field-distortion), built
+  from GFA imaging and never touching sky-subtracted flux; the dither offset field is the only clean
+  flux-independent geometric probe. See `FIBER_LOSS_METRICS.md` and `DAR_FIBER_LOSS_REPORT.md`.
 - **Depth** → `EFFTIME_SPEC` / `TSNR2` (convenient but conflated — not a clean measured/expected).
 
 **Reconstruction note.** With `RCALIBFRAC` and `medval` you recover the absolute per-fiber ratio
@@ -236,7 +248,11 @@ The *discontinuity* is best sidestepped simply by working from a **uniformly-rep
 Matterhorn or Nevis) rather than the `daily` archive (§3) — no reprocessing needed. What a release still does
 *not* provide is an **absolute, un-normalized** variable (its `RCALIBFRAC` is still median-normalized and
 aperture-corrected). If that becomes necessary for the telemetry work, the option is to **reprocess `calibstars`
-ourselves against a frozen release and save more information**. Proposed enriched table:
+ourselves against a frozen release and save more information**. Whether it *is* necessary is worth weighing
+first: `L_see` already covers the seeing-loss level (available), the flux-cal scale covers the absolute
+throughput, and `L_field` covers the spatial DAR — so `RATIO_RAW` earns its reprocessing only if the
+**non-seeing** aperture-loss channels (positioning, transparency-coupled losses) are the thing to attribute.
+Proposed enriched table:
 
 | column | meaning |
 |---|---|
@@ -290,13 +306,18 @@ pipeline change is being requested for this.
 ## 8. This is the research program, not a caveat
 
 Flux loss is a **sum of correlated terms** — wind, seeing, transparency, mirror temperature, positioning, and
-more — and the goal is to find the dominant ones. That drives the variable design: the **raw** absolute
-throughput (`RATIO_RAW`) is the right dependent variable for level attribution *because* it keeps the
-seeing/positioning aperture-loss terms; **airmass extinction** is the one cleanly-modelable term (keep as a known
-regressor or divide out); the rest become candidate predictors, most already surfaced by the Exposure module
-(telemetry fields, `gfa_row` seeing/transparency, the mirror-temperature and windshake analyses). For the
-*spatial* face of the loss, the flux ratios are contaminated by the sky-subtraction bias, and the GFA-based
-`L_see`/`L_field` are the artifact-free instruments.
+more — and the goal is to find the dominant ones. That fixes the roles in the attribution: the **dependent
+variable** (the total measured loss to explain) is `RATIO_RAW` — or, for the total throughput, the flux-cal
+scale — while the **candidate predictors** (`L_see`/seeing, transparency, wind, mirror-ΔT, positioning) are
+regressed against it. So `L_see` and `RATIO_RAW` are **complementary, not interchangeable**: `L_see` is the
+modeled seeing contribution (a predictor), `RATIO_RAW` the total it helps explain (the outcome) — and for a
+seeing-only question (e.g. mirror-ΔT) `L_see` alone is the clean, available answer, no `RATIO_RAW` needed.
+**Airmass extinction** is the one cleanly-modelable term (keep as a known regressor or divide out); the rest are
+mostly already surfaced by the Exposure module (telemetry fields, `gfa_row` seeing/transparency, the
+mirror-temperature and windshake analyses). The artifact-free instruments split by target: **`L_see`** = the
+seeing-loss *level*, **`L_field`** = the *spatial / DAR field-distortion* (both available); the flux ratios
+(`RATIO_RAW`, `RCALIBFRAC`) carry the sky-subtraction bias and serve only as the *total-loss outcome*, never as
+a spatial probe.
 
 ---
 
